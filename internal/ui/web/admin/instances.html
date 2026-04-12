@@ -458,6 +458,10 @@
                 <span class="text-sm text-gray-300">Reabrir conversa em nova mensagem</span>
                 <input type="checkbox" x-model="settingsData.chatwoot_reopen_conv" class="w-4 h-4 rounded accent-green-500">
               </label>
+              <label class="flex items-center justify-between cursor-pointer">
+                <span class="text-sm text-gray-300">Iniciar conversa como pendente</span>
+                <input type="checkbox" x-model="settingsData.chatwoot_conv_pending" class="w-4 h-4 rounded accent-green-500">
+              </label>
             </div>
           </div>
 
@@ -718,6 +722,7 @@ function page() {
           chatwoot_inbox_id: parseInt(this.settingsData.chatwoot_inbox_id) || 0,
           chatwoot_sign_msgs: this.settingsData.chatwoot_sign_msgs,
           chatwoot_reopen_conv: this.settingsData.chatwoot_reopen_conv,
+          chatwoot_conv_pending: this.settingsData.chatwoot_conv_pending,
         };
         await apiCall('PATCH', '/instances/' + this.settingsModal.id + '/settings', body);
         this.settingsModal = null;

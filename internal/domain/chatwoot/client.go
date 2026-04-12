@@ -7,8 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"time"
 )
 
@@ -94,11 +97,12 @@ func (c *Client) createContact(ctx context.Context, name, phone string) (int64, 
 
 // FindOrCreateConversation returns the Chatwoot conversation ID for the given
 // contact and inbox, creating one if it does not exist.
-func (c *Client) FindOrCreateConversation(ctx context.Context, contactID, inboxID int64) (int64, error) {
+// pending=true starts the conversation in "pending" status (awaiting agent).
+func (c *Client) FindOrCreateConversation(ctx context.Context, contactID, inboxID int64, pending bool) (int64, error) {
 	if id, err := c.findConversation(ctx, contactID, inboxID); err == nil {
 		return id, nil
 	}
-	return c.createConversation(ctx, contactID, inboxID)
+	return c.createConversation(ctx, contactID, inboxID, pending)
 }
 
 func (c *Client) findConversation(ctx context.Context, contactID, inboxID int64) (int64, error) {
@@ -125,10 +129,14 @@ func (c *Client) findConversation(ctx context.Context, contactID, inboxID int64)
 	return 0, fmt.Errorf("conversation not found")
 }
 
-func (c *Client) createConversation(ctx context.Context, contactID, inboxID int64) (int64, error) {
+func (c *Client) createConversation(ctx context.Context, contactID, inboxID int64, pending bool) (int64, error) {
+	body := map[string]any{"inbox_id": inboxID}
+	if pending {
+		body["status"] = "pending"
+	}
 	data, err := c.do(ctx, http.MethodPost,
 		fmt.Sprintf("%s/contacts/%d/conversations", c.base, contactID),
-		map[string]any{"inbox_id": inboxID})
+		body)
 	if err != nil {
 		return 0, err
 	}
@@ -154,7 +162,7 @@ func (c *Client) ReopenConversation(ctx context.Context, convID int64) error {
 
 // --- Messages ----------------------------------------------------------------
 
-// PostIncomingMessage posts a customer message (WhatsApp inbound) to a Chatwoot conversation.
+// PostIncomingMessage posts a customer text message (WhatsApp inbound) to a Chatwoot conversation.
 func (c *Client) PostIncomingMessage(ctx context.Context, convID int64, content string) error {
 	_, err := c.do(ctx, http.MethodPost,
 		fmt.Sprintf("%s/conversations/%d/messages", c.base, convID),
@@ -163,6 +171,73 @@ func (c *Client) PostIncomingMessage(ctx context.Context, convID int64, content 
 			"message_type": "incoming",
 			"private":      false,
 		})
+	return err
+}
+
+// PostIncomingMedia uploads a media file as an incoming message attachment.
+// fileName is the file name shown to the agent; mimeType is the MIME type; data is the file bytes.
+func (c *Client) PostIncomingMedia(ctx context.Context, convID int64, caption, fileName, mimeType string, data []byte) error {
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+
+	_ = mw.WriteField("message_type", "incoming")
+	_ = mw.WriteField("private", "false")
+	if caption != "" {
+		_ = mw.WriteField("content", caption)
+	}
+
+	// Derive file extension from MIME type when no filename available.
+	if fileName == "" {
+		exts, _ := mime.ExtensionsByType(mimeType)
+		ext := ".bin"
+		if len(exts) > 0 {
+			ext = exts[0]
+		}
+		fileName = "attachment" + ext
+	}
+
+	part, err := mw.CreateFormFile("attachments[]", filepath.Base(fileName))
+	if err != nil {
+		return err
+	}
+	if _, err := part.Write(data); err != nil {
+		return err
+	}
+	_ = mw.Close()
+
+	rawURL := fmt.Sprintf("%s/conversations/%d/messages", c.base, convID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, rawURL, &buf)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("api_access_token", c.token)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("chatwoot upload %d → %d: %s", convID, resp.StatusCode, string(body))
+	}
+	return nil
+}
+
+// DeleteMessage marks a message as deleted in Chatwoot.
+func (c *Client) DeleteMessage(ctx context.Context, convID, msgID int64) error {
+	_, err := c.do(ctx, http.MethodDelete,
+		fmt.Sprintf("%s/conversations/%d/messages/%d", c.base, convID, msgID),
+		nil)
+	return err
+}
+
+// UpdateContactAvatar sets the profile picture for a contact.
+func (c *Client) UpdateContactAvatar(ctx context.Context, contactID int64, avatarURL string) error {
+	_, err := c.do(ctx, http.MethodPatch,
+		fmt.Sprintf("%s/contacts/%d", c.base, contactID),
+		map[string]any{"avatar_url": avatarURL})
 	return err
 }
 

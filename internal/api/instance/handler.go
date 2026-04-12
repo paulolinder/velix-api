@@ -348,6 +348,9 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	if req.ChatwootReopenConv != nil {
 		current.ChatwootReopenConv = *req.ChatwootReopenConv
 	}
+	if req.ChatwootConvPending != nil {
+		current.ChatwootConvPending = *req.ChatwootConvPending
+	}
 
 	updated, err := h.svc.UpdateSettings(r.Context(), wsID, id, current)
 	if handleErr(w, r, err, "update settings") {

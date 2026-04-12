@@ -3,7 +3,10 @@ package chatwoot
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
+	"time"
 
 	"github.com/rs/zerolog"
 
@@ -32,6 +35,7 @@ type Service struct {
 	eng      engine.Engine
 	instSvc  InstanceSettingsReader
 	mappings MappingRepo
+	http     *http.Client
 	log      zerolog.Logger
 }
 
@@ -41,6 +45,7 @@ func NewService(eng engine.Engine, instSvc InstanceSettingsReader, _ any, mappin
 		eng:      eng,
 		instSvc:  instSvc,
 		mappings: mappings,
+		http:     &http.Client{Timeout: 30 * time.Second},
 		log:      logger.New("chatwoot-service"),
 	}
 	eng.Subscribe(s.handleEngineEvent)
@@ -50,28 +55,20 @@ func NewService(eng engine.Engine, instSvc InstanceSettingsReader, _ any, mappin
 // --- Engine event handler ----------------------------------------------------
 
 func (s *Service) handleEngineEvent(evt engine.Event) {
-	if evt.Type != engine.EventMessageReceived {
-		return
-	}
-	payload, ok := evt.Payload.(*engine.MessagePayload)
-	if !ok {
-		return
-	}
-	// Only forward messages from the contact (not our own API/manual sends).
-	if payload.FromMe {
-		return
-	}
-	// Skip group messages — Chatwoot doesn't model group chats natively.
-	if payload.IsGroup {
-		return
-	}
-
 	ctx := context.Background()
-	if err := s.syncInbound(ctx, evt.InstanceID, payload); err != nil {
-		s.log.Warn().Err(err).
-			Str("instance", evt.InstanceID).
-			Str("from", payload.From).
-			Msg("Chatwoot: failed to sync inbound message")
+
+	switch evt.Type {
+	case engine.EventMessageReceived:
+		payload, ok := evt.Payload.(*engine.MessagePayload)
+		if !ok || payload.FromMe || payload.IsGroup {
+			return
+		}
+		if err := s.syncInbound(ctx, evt.InstanceID, payload); err != nil {
+			s.log.Warn().Err(err).
+				Str("instance", evt.InstanceID).
+				Str("from", payload.From).
+				Msg("Chatwoot: failed to sync inbound message")
+		}
 	}
 }
 
@@ -86,41 +83,68 @@ func (s *Service) syncInbound(ctx context.Context, instanceID string, p *engine.
 
 	client := NewClient(cfg.ChatwootURL, cfg.ChatwootToken, cfg.ChatwootAccountID)
 
-	// Normalize sender JID → phone number for Chatwoot.
 	phone := jidToPhone(p.From)
 	name := p.PushName
 	if name == "" {
 		name = phone
 	}
 
-	// Find or create the Chatwoot contact.
 	contactID, err := s.findOrCreateContact(ctx, client, instanceID, p.From, name, phone)
 	if err != nil {
 		return fmt.Errorf("find/create contact: %w", err)
 	}
 
-	// Find or create the Chatwoot conversation for this chat.
-	convID, err := s.findOrCreateConversation(ctx, client, instanceID, p.Chat, contactID, cfg.ChatwootInboxID)
+	convID, err := s.findOrCreateConversation(ctx, client, instanceID, p.Chat, contactID, cfg.ChatwootInboxID, cfg.ChatwootConvPending)
 	if err != nil {
 		return fmt.Errorf("find/create conversation: %w", err)
 	}
 
-	// Optionally reopen resolved conversations.
 	if cfg.ChatwootReopenConv {
 		_ = client.ReopenConversation(ctx, convID)
 	}
 
-	// Build message content.
-	content := buildMessageContent(p)
-	if content == "" {
-		return nil // nothing to forward (e.g. sticker with no text)
+	// Media message — upload the file as an attachment if available.
+	if p.Media != nil && p.Media.LocalPath != "" {
+		return s.forwardMediaToConversation(ctx, client, convID, p)
 	}
 
+	// Text or fallback content.
+	content := buildMessageContent(p)
+	if content == "" {
+		return nil
+	}
 	return client.PostIncomingMessage(ctx, convID, content)
 }
 
+// forwardMediaToConversation downloads the media file and posts it to Chatwoot.
+func (s *Service) forwardMediaToConversation(ctx context.Context, client *Client, convID int64, p *engine.MessagePayload) error {
+	// Download from local server if DirectURL is set, otherwise fall back to text.
+	if p.Media.DirectURL == "" && p.Media.LocalPath == "" {
+		return client.PostIncomingMessage(ctx, convID, buildMessageContent(p))
+	}
+
+	var fileData []byte
+	if p.Media.DirectURL != "" {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.Media.DirectURL, nil)
+		if err != nil {
+			return client.PostIncomingMessage(ctx, convID, buildMessageContent(p))
+		}
+		resp, err := s.http.Do(req)
+		if err != nil || resp.StatusCode != http.StatusOK {
+			return client.PostIncomingMessage(ctx, convID, buildMessageContent(p))
+		}
+		defer resp.Body.Close()
+		fileData, _ = io.ReadAll(resp.Body)
+	}
+
+	if len(fileData) == 0 {
+		return client.PostIncomingMessage(ctx, convID, buildMessageContent(p))
+	}
+
+	return client.PostIncomingMedia(ctx, convID, p.Media.Caption, p.Media.FileName, p.Media.MimeType, fileData)
+}
+
 func (s *Service) findOrCreateContact(ctx context.Context, client *Client, instanceID, jid, name, phone string) (int64, error) {
-	// Check local cache first.
 	if id, _ := s.mappings.GetContactID(ctx, instanceID, jid); id != 0 {
 		return id, nil
 	}
@@ -132,12 +156,11 @@ func (s *Service) findOrCreateContact(ctx context.Context, client *Client, insta
 	return id, nil
 }
 
-func (s *Service) findOrCreateConversation(ctx context.Context, client *Client, instanceID, chatJID string, contactID, inboxID int64) (int64, error) {
-	// Check local cache first.
+func (s *Service) findOrCreateConversation(ctx context.Context, client *Client, instanceID, chatJID string, contactID, inboxID int64, pending bool) (int64, error) {
 	if id, _ := s.mappings.GetConversationID(ctx, instanceID, chatJID); id != 0 {
 		return id, nil
 	}
-	id, err := client.FindOrCreateConversation(ctx, contactID, inboxID)
+	id, err := client.FindOrCreateConversation(ctx, contactID, inboxID, pending)
 	if err != nil {
 		return 0, err
 	}
@@ -171,44 +194,80 @@ func (s *Service) HandleWebhook(ctx context.Context, p *ChatwootWebhookPayload) 
 	if p.Event != "message_created" {
 		return nil
 	}
-	// Only forward outgoing messages (agent → contact).
 	if !isOutgoingMessage(p.MessageType) {
 		return nil
 	}
-	// Ignore bot messages to prevent loops if an AI agent is configured.
+	// Ignore bot messages to prevent loops.
 	if p.Sender.Type == "agent_bot" {
 		return nil
 	}
 
-	// Find the instance by Chatwoot inbox ID.
 	inst, err := s.instSvc.GetByChatwootInboxID(ctx, p.Conversation.InboxID)
 	if err != nil {
 		return fmt.Errorf("no instance for inbox %d: %w", p.Conversation.InboxID, err)
 	}
 
-	// Reverse-lookup the WhatsApp chat JID from our mappings.
 	chatJID, err := s.mappings.GetChatJIDByConversationID(ctx, inst.ID, p.Conversation.ID)
 	if err != nil || chatJID == "" {
 		return fmt.Errorf("no WhatsApp chat for conversation %d", p.Conversation.ID)
 	}
 
-	// Build message text.
+	// Send text content if present.
 	content := strings.TrimSpace(p.Content)
-	if content == "" {
-		return nil
-	}
-	if inst.Settings.ChatwootSignMsgs && p.Sender.Name != "" {
-		content = fmt.Sprintf("*%s:* %s", p.Sender.Name, content)
+	if content != "" {
+		if inst.Settings.ChatwootSignMsgs && p.Sender.Name != "" {
+			content = fmt.Sprintf("*%s:* %s", p.Sender.Name, content)
+		}
+		if _, err := s.eng.SendText(ctx, inst.ID, chatJID, content); err != nil {
+			return err
+		}
 	}
 
-	_, err = s.eng.SendText(ctx, inst.ID, chatJID, content)
+	// Send attachments (images, documents, etc.) sent by the agent.
+	for _, att := range p.Attachments {
+		if att.DataURL == "" {
+			continue
+		}
+		if err := s.forwardAttachmentToWA(ctx, inst.ID, chatJID, att.DataURL, att.FileType); err != nil {
+			s.log.Warn().Err(err).Str("url", att.DataURL).Msg("Chatwoot: failed to forward attachment to WhatsApp")
+		}
+	}
+
+	return nil
+}
+
+// forwardAttachmentToWA downloads a Chatwoot attachment and sends it via WhatsApp.
+func (s *Service) forwardAttachmentToWA(ctx context.Context, instanceID, to, dataURL, fileType string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, dataURL, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := s.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	mimeType := resp.Header.Get("Content-Type")
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+
+	mediaType := fileTypeToMediaType(fileType, mimeType)
+	_, err = s.eng.SendMedia(ctx, instanceID, to, engine.MediaPayload{
+		Type:     mediaType,
+		Data:     data,
+		MimeType: strings.Split(mimeType, ";")[0],
+	})
 	return err
 }
 
 // --- Helpers -----------------------------------------------------------------
 
-// jidToPhone strips the WhatsApp suffix and returns the raw phone number.
-// "5511999990001@s.whatsapp.net" → "5511999990001"
 func jidToPhone(jid string) string {
 	if idx := strings.Index(jid, "@"); idx != -1 {
 		return jid[:idx]
@@ -216,7 +275,6 @@ func jidToPhone(jid string) string {
 	return jid
 }
 
-// buildMessageContent returns a text representation of the WhatsApp message.
 func buildMessageContent(p *engine.MessagePayload) string {
 	switch {
 	case p.Text != "":
@@ -237,8 +295,6 @@ func buildMessageContent(p *engine.MessagePayload) string {
 	}
 }
 
-// isOutgoingMessage returns true when the Chatwoot message_type indicates an agent outgoing message.
-// Chatwoot uses either the string "outgoing" or the integer 1.
 func isOutgoingMessage(raw any) bool {
 	switch v := raw.(type) {
 	case string:
@@ -247,4 +303,30 @@ func isOutgoingMessage(raw any) bool {
 		return v == 1
 	}
 	return false
+}
+
+// fileTypeToMediaType maps Chatwoot file_type to engine.MediaType.
+func fileTypeToMediaType(fileType, mimeType string) engine.MediaType {
+	switch strings.ToLower(fileType) {
+	case "image":
+		return engine.MediaTypeImage
+	case "video":
+		return engine.MediaTypeVideo
+	case "audio":
+		return engine.MediaTypeAudio
+	case "sticker":
+		return engine.MediaTypeSticker
+	default:
+		// Derive from MIME type when fileType is "file" or unknown.
+		mt := strings.Split(mimeType, "/")[0]
+		switch mt {
+		case "image":
+			return engine.MediaTypeImage
+		case "video":
+			return engine.MediaTypeVideo
+		case "audio":
+			return engine.MediaTypeAudio
+		}
+		return engine.MediaTypeDocument
+	}
 }

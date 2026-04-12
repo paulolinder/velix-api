@@ -49,6 +49,7 @@ type Settings struct {
 	ChatwootToken      string `json:"chatwoot_token,omitempty"`
 	ChatwootAccountID  int64  `json:"chatwoot_account_id,omitempty"`
 	ChatwootInboxID    int64  `json:"chatwoot_inbox_id,omitempty"`
-	ChatwootSignMsgs   bool   `json:"chatwoot_sign_msgs"`   // prefix outgoing msgs with agent name
-	ChatwootReopenConv bool   `json:"chatwoot_reopen_conv"` // reopen resolved conversations on new message
+	ChatwootSignMsgs   bool   `json:"chatwoot_sign_msgs"`    // prefix outgoing msgs with agent name
+	ChatwootReopenConv bool   `json:"chatwoot_reopen_conv"`  // reopen resolved conversations on new message
+	ChatwootConvPending bool  `json:"chatwoot_conv_pending"` // start new conversations as pending
 }

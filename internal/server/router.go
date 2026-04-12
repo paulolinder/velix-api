@@ -80,6 +80,11 @@ func NewRouter(deps *Deps) http.Handler {
 		if file == "" {
 			file = "index.html"
 		}
+		// Prevent browsers from caching HTML pages so deployments take effect immediately.
+		if strings.HasSuffix(file, ".html") || file == "" {
+			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			w.Header().Set("Pragma", "no-cache")
+		}
 		http.ServeFileFS(w, r, adminFS, file)
 	})
 
@@ -207,6 +212,8 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func adminFileHandler(fsys fs.FS, name string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Set("Pragma", "no-cache")
 		http.ServeFileFS(w, r, fsys, name)
 	}
 }

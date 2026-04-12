@@ -116,7 +116,7 @@ func NewRouter(deps *Deps) http.Handler {
 
 			// Instance management — single Route tree to avoid chi trie conflicts
 			// that arise when r.Mount and r.Route share the same path prefix.
-			instH := instanceapi.NewHandler(deps.InstanceService)
+			instH := instanceapi.NewHandler(deps.InstanceService, deps.AuthService)
 			r.Route("/instances", func(r chi.Router) {
 				r.Post("/", instH.Create)
 				r.Get("/", instH.List)

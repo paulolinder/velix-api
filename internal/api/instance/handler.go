@@ -12,17 +12,23 @@ import (
 	qrcode "github.com/skip2/go-qrcode"
 
 	apipkg "velix/internal/api"
+	"velix/internal/domain/auth"
 	"velix/internal/domain/instance"
 )
 
 // Handler holds the service dependency for all instance HTTP handlers.
 type Handler struct {
-	svc *instance.Service
+	svc    *instance.Service
+	keySvc *auth.Service
 }
 
 // NewHandler creates a new instance HTTP handler.
-func NewHandler(svc *instance.Service) *Handler {
-	return &Handler{svc: svc}
+func NewHandler(svc *instance.Service, keySvc ...*auth.Service) *Handler {
+	h := &Handler{svc: svc}
+	if len(keySvc) > 0 {
+		h.keySvc = keySvc[0]
+	}
+	return h
 }
 
 // Routes mounts all instance routes on r.
@@ -85,12 +91,29 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wsID := apipkg.WorkspaceID(r)
+	claims := auth.ClaimsFromContext(r.Context())
 	inst, err := h.svc.Create(r.Context(), wsID, req.Name, req.ProxyURL)
 	if handleErr(w, r, err, "create instance") {
 		return
 	}
 
-	apipkg.WriteJSON(w, r, http.StatusCreated, fromDomain(inst))
+	// Auto-generate a permanent, instance-scoped API key.
+	var rawKey string
+	if h.keySvc != nil && claims != nil {
+		_, rawKey, _ = h.keySvc.CreateAPIKey(
+			r.Context(),
+			wsID,
+			claims.UserID,
+			"Instância: "+inst.Name,
+			nil, // never expires
+			[]string{"instance:" + inst.ID},
+		)
+	}
+
+	apipkg.WriteJSON(w, r, http.StatusCreated, &CreateResponse{
+		Instance: fromDomain(inst),
+		APIKey:   rawKey,
+	})
 }
 
 // List handles GET /v1/instances?limit=50&offset=0.

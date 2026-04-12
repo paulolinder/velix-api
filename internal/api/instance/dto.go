@@ -37,6 +37,13 @@ type Response struct {
 	UpdatedAt       time.Time  `json:"updated_at"`
 }
 
+// CreateResponse is returned when a new instance is created.
+// It includes the raw API key which is shown once and never returned again.
+type CreateResponse struct {
+	Instance *Response `json:"instance"`
+	APIKey   string    `json:"api_key"` // shown once — save it
+}
+
 // PairCodeResponse is returned by POST /v1/instances/{id}/pair-code.
 type PairCodeResponse struct {
 	Code string `json:"code"`

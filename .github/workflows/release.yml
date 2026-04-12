@@ -2,6 +2,8 @@ name: Release
 
 on:
   push:
+    branches:
+      - master
     tags:
       - 'v*'
 
@@ -20,9 +22,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extrai versão da tag
+      - name: Extrai versão
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+            echo "IS_RELEASE=true" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=dev" >> $GITHUB_OUTPUT
+            echo "IS_RELEASE=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Login no GitHub Container Registry
         uses: docker/login-action@v3
@@ -34,7 +43,20 @@ jobs:
       - name: Configura Docker Buildx (multi-arch)
         uses: docker/setup-buildx-action@v3
 
-      - name: Build e Push da imagem
+      - name: Build e Push (master → latest)
+        if: steps.version.outputs.IS_RELEASE == 'false'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          build-args: VERSION=${{ steps.version.outputs.VERSION }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build e Push (tag → versão + latest)
+        if: steps.version.outputs.IS_RELEASE == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -48,6 +70,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Cria GitHub Release
+        if: steps.version.outputs.IS_RELEASE == 'true'
         uses: softprops/action-gh-release@v1
         with:
           name: "v${{ steps.version.outputs.VERSION }}"

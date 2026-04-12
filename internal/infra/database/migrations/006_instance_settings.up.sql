@@ -1,0 +1,1 @@
+ALTER TABLE instances ADD COLUMN settings JSONB NOT NULL DEFAULT '{}';

@@ -1,0 +1,59 @@
+# Ambiente de desenvolvimento local
+# Sobe apenas Postgres e Redis — a API roda com: make run (ou go run ./cmd/api)
+# Para subir tudo junto: docker compose --profile full up -d
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: velix_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: velix
+      POSTGRES_PASSWORD: velix
+      POSTGRES_DB: velix
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U velix"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: velix_redis
+    restart: unless-stopped
+    command: redis-server --save 20 1 --loglevel warning
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # pgAdmin — só com: docker compose --profile dev up
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: velix_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@velix.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - dev
+
+volumes:
+  postgres_data:
+  redis_data:

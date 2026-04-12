@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Velix API — Entrar</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
+  <style>[x-cloak]{display:none!important}</style>
+</head>
+<body class="bg-gray-950 min-h-screen flex items-center justify-center p-4">
+  <div x-data="login()" x-cloak class="w-full max-w-md">
+
+    <div class="text-center mb-8">
+      <div class="inline-flex w-14 h-14 bg-green-500 rounded-2xl items-center justify-center text-3xl mb-4">💬</div>
+      <h1 class="text-2xl font-bold text-white">Velix API</h1>
+      <p class="text-gray-500 text-sm mt-1">Painel Administrativo</p>
+    </div>
+
+    <div class="bg-gray-900 rounded-2xl p-8 border border-gray-800 shadow-2xl">
+      <form @submit.prevent="submit">
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-300 mb-1.5">E-mail</label>
+          <input x-model="email" type="email" required autocomplete="email"
+                 class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                 placeholder="admin@example.com">
+        </div>
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-300 mb-1.5">Senha</label>
+          <input x-model="password" type="password" required autocomplete="current-password"
+                 class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                 placeholder="••••••••">
+        </div>
+
+        <div x-show="error" x-text="error"
+             class="mb-4 px-4 py-3 bg-red-950 border border-red-800 rounded-xl text-red-400 text-sm"></div>
+
+        <button type="submit" :disabled="loading"
+                class="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl transition flex items-center justify-center gap-2">
+          <svg x-show="loading" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          <span x-text="loading ? 'Entrando…' : 'Entrar'"></span>
+        </button>
+      </form>
+    </div>
+
+    <p class="text-center text-gray-600 text-xs mt-6">
+      Não tem uma conta? Use <code class="text-gray-400">POST /v1/auth/register</code>
+    </p>
+  </div>
+
+  <script>
+  function login() {
+    return {
+      email: '', password: '', loading: false, error: '',
+      init() {
+        if (localStorage.getItem('wa_token')) {
+          window.location.href = '/admin/dashboard.html';
+        }
+      },
+      async submit() {
+        this.loading = true;
+        this.error = '';
+        try {
+          const r = await fetch('/v1/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: this.email, password: this.password })
+          });
+          const d = await r.json();
+          if (!r.ok || !d.success) {
+            this.error = d.error?.message || 'E-mail ou senha inválidos';
+            return;
+          }
+          localStorage.setItem('wa_token', d.data.token);
+          localStorage.setItem('wa_email', d.data.user?.email || this.email);
+          window.location.href = '/admin/dashboard.html';
+        } catch (e) {
+          this.error = 'Erro de rede — o servidor está rodando?';
+        } finally {
+          this.loading = false;
+        }
+      }
+    };
+  }
+  </script>
+</body>
+</html>

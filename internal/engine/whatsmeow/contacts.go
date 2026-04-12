@@ -1,0 +1,73 @@
+package waengine
+
+import (
+	"context"
+	"fmt"
+
+	"go.mau.fi/whatsmeow/types"
+
+	"velix/internal/engine"
+)
+
+// IsOnWhatsApp checks which phone numbers have WhatsApp accounts.
+func (e *Engine) IsOnWhatsApp(ctx context.Context, instanceID string, phones []string) ([]engine.ContactCheck, error) {
+	mi, err := e.getInstance(instanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := mi.client.IsOnWhatsApp(ctx, phones)
+	if err != nil {
+		return nil, fmt.Errorf("IsOnWhatsApp: %w", err)
+	}
+
+	results := make([]engine.ContactCheck, len(resp))
+	for i, r := range resp {
+		results[i] = engine.ContactCheck{
+			Phone:  r.Query,
+			JID:    r.JID.ToNonAD().String(),
+			Exists: r.IsIn,
+		}
+	}
+	return results, nil
+}
+
+// GetContactInfo returns metadata for a single WhatsApp contact.
+// It combines the local device store (push name, business name) with a live
+// profile-picture lookup.
+func (e *Engine) GetContactInfo(ctx context.Context, instanceID, jid string) (engine.ContactInfo, error) {
+	mi, err := e.getInstance(instanceID)
+	if err != nil {
+		return engine.ContactInfo{}, err
+	}
+
+	parsedJID, err := parseJID(jid)
+	if err != nil {
+		return engine.ContactInfo{}, fmt.Errorf("invalid JID %q: %w", jid, err)
+	}
+
+	// Pull cached contact data from the local store (push name / business name).
+	contact, _ := mi.client.Store.Contacts.GetContact(ctx, parsedJID)
+
+	// Fetch live UserInfo (status, picture ID) — best-effort.
+	var status string
+	if infoMap, err := mi.client.GetUserInfo(ctx, []types.JID{parsedJID}); err == nil {
+		if info, ok := infoMap[parsedJID]; ok {
+			status = info.Status
+		}
+	}
+
+	// Attempt profile picture URL (non-fatal on error).
+	picURL := ""
+	if pic, err := mi.client.GetProfilePictureInfo(ctx, parsedJID, nil); err == nil && pic != nil {
+		picURL = pic.URL
+	}
+
+	return engine.ContactInfo{
+		JID:          parsedJID.ToNonAD().String(),
+		PushName:     contact.PushName,
+		BusinessName: contact.BusinessName,
+		About:        status,
+		PictureURL:   picURL,
+	}, nil
+}

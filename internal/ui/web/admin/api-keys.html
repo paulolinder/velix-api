@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Velix API — Chaves de API</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
+  <script src="/admin/shared.js"></script>
+  <style>[x-cloak]{display:none!important}</style>
+</head>
+<body class="bg-gray-950 text-gray-100" x-data="page()" x-init="init()" x-cloak>
+<div class="flex h-screen overflow-hidden">
+
+  <!-- Sidebar -->
+  <aside class="w-60 bg-gray-900 border-r border-gray-800 flex flex-col flex-shrink-0" id="sidebar">
+    <div class="p-5 border-b border-gray-800">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-green-500 rounded-xl flex items-center justify-center text-xl">W</div>
+        <span class="font-bold text-white">Velix API</span>
+      </div>
+    </div>
+    <nav class="flex-1 p-3 space-y-0.5" id="nav">
+      <a href="/admin/dashboard.html" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+        Painel
+      </a>
+      <a href="/admin/instances.html" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+        Instâncias
+      </a>
+      <a href="/admin/api-keys.html" class="nav-item active">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+        Chaves de API
+      </a>
+      <a href="/admin/messages.html" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        Mensagens
+      </a>
+      <a href="/admin/scheduled.html" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Agendamentos
+      </a>
+      <a href="/admin/usage.html" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        Uso
+      </a>
+      <a href="/docs" target="_blank" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Docs da API
+      </a>
+    </nav>
+    <div class="p-4 border-t border-gray-800">
+      <p class="text-xs text-gray-500 truncate mb-2" x-text="email"></p>
+      <button @click="doLogout()" class="w-full text-left text-xs text-gray-500 hover:text-red-400 transition flex items-center gap-2">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        Sair
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 overflow-auto">
+    <div class="p-8">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-2xl font-bold text-white">Chaves de API</h1>
+          <p class="text-gray-500 text-sm mt-1">Gerencie credenciais de acesso programático</p>
+        </div>
+        <button @click="openCreate()" class="bg-green-600 hover:bg-green-500 text-white text-sm font-medium px-4 py-2 rounded-xl transition flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Nova Chave de API
+        </button>
+      </div>
+
+      <div x-show="error" class="mb-6 bg-red-950 border border-red-800 rounded-xl p-4 text-red-400 text-sm" x-text="error"></div>
+      <div x-show="loading" class="text-center py-16 text-gray-500">Carregando…</div>
+
+      <div x-show="!loading && keys.length === 0" class="text-center py-16">
+        <div class="text-5xl mb-4">🔑</div>
+        <p class="text-gray-400 font-medium">Nenhuma chave de API ainda</p>
+        <p class="text-gray-600 text-sm mt-1">Crie uma para autenticar requisições da API</p>
+        <button @click="openCreate()" class="mt-4 bg-green-600 hover:bg-green-500 text-white text-sm font-medium px-4 py-2 rounded-xl transition">Criar Chave de API</button>
+      </div>
+
+      <div x-show="!loading && keys.length > 0" class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-800">
+              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nome / Prefixo</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Último Uso</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Expira</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+              <th class="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="k in keys" :key="k.id">
+              <tr class="border-b border-gray-800 last:border-0 hover:bg-gray-800/50 transition" :class="k.revoked_at ? 'opacity-50' : ''">
+                <td class="px-5 py-4">
+                  <p class="font-medium text-white" x-text="k.name || 'Sem nome'"></p>
+                  <code class="text-xs text-gray-500 font-mono" x-text="k.key_prefix + '…'"></code>
+                </td>
+                <td class="px-5 py-4 text-gray-500 text-xs" x-text="fmtDate(k.last_used_at)"></td>
+                <td class="px-5 py-4 text-gray-500 text-xs" x-text="fmtDate(k.expires_at)"></td>
+                <td class="px-5 py-4">
+                  <span x-show="k.revoked_at" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-950 text-red-400">
+                    <span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span>revogada
+                  </span>
+                  <span x-show="!k.revoked_at && k.expires_at && new Date(k.expires_at) < new Date()" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-950 text-orange-400">
+                    <span class="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>expirada
+                  </span>
+                  <span x-show="!k.revoked_at && (!k.expires_at || new Date(k.expires_at) >= new Date())" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-900 text-green-300">
+                    <span class="w-1.5 h-1.5 bg-green-400 rounded-full"></span>ativa
+                  </span>
+                </td>
+                <td class="px-5 py-4">
+                  <div class="flex items-center justify-end">
+                    <button x-show="!k.revoked_at" @click="revokeKey(k)"
+                            class="px-3 py-1.5 text-xs font-medium bg-gray-800 hover:bg-red-900 text-gray-400 hover:text-red-300 rounded-lg transition">
+                      Revogar
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Create Modal -->
+<div x-show="createModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" @keydown.escape.window="createModal=false">
+  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl" @click.stop>
+    <h2 class="text-lg font-bold text-white mb-5">Nova Chave de API</h2>
+
+    <!-- Show raw key after creation -->
+    <div x-show="newKey" class="mb-5 p-4 bg-amber-950 border border-amber-700 rounded-xl">
+      <p class="text-amber-300 text-sm font-semibold mb-2">⚠️ Copie esta chave agora — ela não será exibida novamente!</p>
+      <div class="flex items-center gap-2 mt-2">
+        <code class="flex-1 text-xs text-amber-200 font-mono break-all bg-amber-900/50 px-3 py-2 rounded-lg select-all" x-text="newKey"></code>
+        <button @click="copyKey()" class="flex-shrink-0 px-3 py-2 bg-amber-800 hover:bg-amber-700 text-amber-200 text-xs rounded-lg transition" x-text="copied ? '✓ Copiado' : 'Copiar'"></button>
+      </div>
+    </div>
+
+    <form @submit.prevent="createKey" x-show="!newKey">
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-300 mb-1.5">Nome</label>
+        <input x-model="form.name" type="text"
+               class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 transition"
+               placeholder="Servidor de produção">
+      </div>
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-300 mb-1.5">Expira em <span class="text-gray-500 font-normal">(opcional)</span></label>
+        <input x-model="form.expires_at" type="datetime-local"
+               class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+      </div>
+      <div x-show="formError" x-text="formError" class="mb-4 text-red-400 text-sm"></div>
+      <div class="flex gap-3">
+        <button type="button" @click="createModal=false" class="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-medium py-2.5 rounded-xl transition">Cancelar</button>
+        <button type="submit" :disabled="formLoading" class="flex-1 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-medium py-2.5 rounded-xl transition">
+          <span x-text="formLoading ? 'Criando…' : 'Criar'"></span>
+        </button>
+      </div>
+    </form>
+
+    <button x-show="newKey" @click="closeCreate()" class="w-full bg-green-600 hover:bg-green-500 text-white font-medium py-2.5 rounded-xl transition mt-2">Pronto — salvei a chave</button>
+  </div>
+</div>
+
+<style>
+  .nav-item { display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.75rem; border-radius:0.5rem; font-size:0.875rem; font-weight:500; color:#9ca3af; transition:all 150ms; }
+  .nav-item:hover { color:#fff; background:#1f2937; }
+  .nav-item.active { color:#fff; background:#1f2937; }
+</style>
+
+<script>
+function page() {
+  return {
+    email: getUserEmail(),
+    keys: [],
+    loading: false,
+    error: '',
+    createModal: false,
+    form: { name: '', expires_at: '' },
+    formLoading: false,
+    formError: '',
+    newKey: '',
+    copied: false,
+
+    init() {
+      if (!requireAuth()) return;
+      this.load();
+    },
+
+    async load() {
+      this.loading = true;
+      try {
+        const d = await apiCall('GET', '/auth/api-keys');
+        this.keys = d || [];
+      } catch (e) {
+        this.error = e.message;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    openCreate() {
+      this.form = { name: '', expires_at: '' };
+      this.formError = '';
+      this.newKey = '';
+      this.copied = false;
+      this.createModal = true;
+    },
+
+    closeCreate() {
+      this.createModal = false;
+      this.newKey = '';
+      this.copied = false;
+    },
+
+    async createKey() {
+      this.formLoading = true;
+      this.formError = '';
+      try {
+        const body = {};
+        if (this.form.name.trim()) body.name = this.form.name.trim();
+        if (this.form.expires_at) body.expires_at = new Date(this.form.expires_at).toISOString();
+        const d = await apiCall('POST', '/auth/api-keys', body);
+        this.newKey = d.key;
+        await this.load();
+      } catch (e) {
+        this.formError = e.message;
+      } finally {
+        this.formLoading = false;
+      }
+    },
+
+    async copyKey() {
+      try {
+        await navigator.clipboard.writeText(this.newKey);
+        this.copied = true;
+        setTimeout(() => { this.copied = false; }, 2000);
+      } catch (e) {
+        // Fallback: select the text manually
+      }
+    },
+
+    async revokeKey(k) {
+      const name = k.name || k.key_prefix;
+      if (!confirm('Revogar chave "' + name + '"? Isso não pode ser desfeito.')) return;
+      try {
+        await apiDelete('/auth/api-keys/' + k.id);
+        await this.load();
+      } catch (e) {
+        this.error = e.message;
+      }
+    }
+  };
+}
+</script>
+</body>
+</html>

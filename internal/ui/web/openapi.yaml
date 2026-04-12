@@ -1,0 +1,757 @@
+openapi: 3.0.3
+info:
+  title: WhatsAPI
+  description: |
+    Multi-tenant WhatsApp API. Manage instances, send messages (text, media, reactions),
+    receive real-time events via webhooks or WebSocket, and schedule messages for future delivery.
+  version: "1.0.0"
+  contact:
+    name: WhatsAPI Support
+
+servers:
+  - url: /v1
+    description: Current server
+
+security:
+  - bearerAuth: []
+  - apiKeyHeader: []
+
+tags:
+  - name: Auth
+    description: Registration, login, API key management
+  - name: Instances
+    description: WhatsApp instance lifecycle and settings
+  - name: Messages
+    description: Send, schedule, and query messages
+  - name: Contacts
+    description: Contact management
+  - name: Groups
+    description: Group management
+  - name: Webhooks
+    description: Webhook endpoint registration
+  - name: Events
+    description: Real-time event streaming
+
+paths:
+  # ─── Auth ───────────────────────────────────────────────────────────────────
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new workspace
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in and receive a JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current workspace info
+      responses:
+        '200':
+          description: OK
+
+  /auth/api-keys:
+    get:
+      tags: [Auth]
+      summary: List API keys
+      responses:
+        '200':
+          description: OK
+    post:
+      tags: [Auth]
+      summary: Create a new API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Created
+
+  /auth/api-keys/{keyID}:
+    delete:
+      tags: [Auth]
+      summary: Revoke an API key
+      parameters:
+        - $ref: '#/components/parameters/keyID'
+      responses:
+        '204':
+          description: Revoked
+
+  # ─── Instances ──────────────────────────────────────────────────────────────
+  /instances:
+    get:
+      tags: [Instances]
+      summary: List all instances in your workspace
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Instance'
+    post:
+      tags: [Instances]
+      summary: Create a new WhatsApp instance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInstanceRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Instance'
+
+  /instances/{instanceID}:
+    get:
+      tags: [Instances]
+      summary: Get instance details
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Instances]
+      summary: Delete an instance
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      responses:
+        '204':
+          description: Deleted
+
+  /instances/{instanceID}/qr:
+    get:
+      tags: [Instances]
+      summary: Stream QR code for WhatsApp Web pairing (SSE)
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      responses:
+        '200':
+          description: Server-Sent Events stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /instances/{instanceID}/disconnect:
+    post:
+      tags: [Instances]
+      summary: Disconnect and log out the instance
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      responses:
+        '200':
+          description: OK
+
+  /instances/{instanceID}/settings:
+    get:
+      tags: [Instances]
+      summary: Get instance settings
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      responses:
+        '200':
+          description: OK
+    patch:
+      tags: [Instances]
+      summary: Update instance settings
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstanceSettings'
+      responses:
+        '200':
+          description: OK
+
+  # ─── Messages ───────────────────────────────────────────────────────────────
+  /instances/{instanceID}/messages/text:
+    post:
+      tags: [Messages]
+      summary: Send or schedule a text message
+      description: |
+        If `send_at` is provided and in the future, the message is scheduled and
+        returns `202 Accepted`. Otherwise it is sent immediately and returns `201 Created`.
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendTextRequest'
+      responses:
+        '201':
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '202':
+          description: Message scheduled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+
+  /instances/{instanceID}/messages/media:
+    post:
+      tags: [Messages]
+      summary: Send or schedule a media message
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMediaRequest'
+      responses:
+        '201':
+          description: Sent
+        '202':
+          description: Scheduled
+
+  /instances/{instanceID}/messages/reaction:
+    post:
+      tags: [Messages]
+      summary: Send a reaction to a message
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendReactionRequest'
+      responses:
+        '200':
+          description: OK
+
+  /instances/{instanceID}/messages/read:
+    post:
+      tags: [Messages]
+      summary: Mark messages as read
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkReadRequest'
+      responses:
+        '200':
+          description: OK
+
+  /instances/{instanceID}/messages/batch:
+    post:
+      tags: [Messages]
+      summary: Send up to 100 text messages in a single call
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchTextRequest'
+      responses:
+        '207':
+          description: Multi-status — one result per message in request order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BatchResultItem'
+
+  /instances/{instanceID}/messages:
+    get:
+      tags: [Messages]
+      summary: List messages for a chat
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+        - name: chat
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Chat JID (e.g. 5511999999999@s.whatsapp.net)
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+
+  /instances/{instanceID}/messages/scheduled:
+    get:
+      tags: [Messages]
+      summary: List scheduled and cancelled messages for an instance
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: OK
+
+  /instances/{instanceID}/messages/{msgID}:
+    delete:
+      tags: [Messages]
+      summary: Revoke (delete for everyone) a sent message
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+        - $ref: '#/components/parameters/msgID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                to:
+                  type: string
+      responses:
+        '204':
+          description: Revoked
+
+  /instances/{instanceID}/messages/{msgID}/schedule:
+    delete:
+      tags: [Messages]
+      summary: Cancel a scheduled message
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+        - $ref: '#/components/parameters/msgID'
+      responses:
+        '204':
+          description: Cancelled
+
+  # ─── Contacts ───────────────────────────────────────────────────────────────
+  /instances/{instanceID}/contacts:
+    get:
+      tags: [Contacts]
+      summary: List contacts for an instance
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      responses:
+        '200':
+          description: OK
+
+  /instances/{instanceID}/contacts/{jid}:
+    get:
+      tags: [Contacts]
+      summary: Get a single contact
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+        - name: jid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+
+  # ─── Groups ─────────────────────────────────────────────────────────────────
+  /instances/{instanceID}/groups:
+    get:
+      tags: [Groups]
+      summary: List groups the instance is a member of
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      responses:
+        '200':
+          description: OK
+
+  # ─── Webhooks ───────────────────────────────────────────────────────────────
+  /webhooks:
+    get:
+      tags: [Webhooks]
+      summary: List webhooks for your workspace
+      responses:
+        '200':
+          description: OK
+    post:
+      tags: [Webhooks]
+      summary: Register a new webhook endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWebhookRequest'
+      responses:
+        '201':
+          description: Created
+
+  /webhooks/{webhookID}:
+    delete:
+      tags: [Webhooks]
+      summary: Delete a webhook
+      parameters:
+        - name: webhookID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted
+
+  # ─── Events ─────────────────────────────────────────────────────────────────
+  /ws:
+    get:
+      tags: [Events]
+      summary: Real-time event stream via WebSocket
+      description: |
+        Upgrade this request to a WebSocket connection to receive real-time engine events
+        (message received, QR code, connection state changes, etc.) as JSON messages.
+
+        **Authentication**: Pass your JWT as the `token` query parameter — WebSocket
+        handshakes do not support `Authorization` headers in browsers.
+
+        `ws://host/v1/ws?token=<jwt>`
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Valid JWT obtained from POST /auth/login
+      responses:
+        '101':
+          description: Switching Protocols (WebSocket upgrade)
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  parameters:
+    instanceID:
+      name: instanceID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    msgID:
+      name: msgID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    keyID:
+      name: keyID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 50
+        maximum: 100
+    offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        default: 0
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, name]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        name:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        workspace_id:
+          type: string
+        email:
+          type: string
+
+    Instance:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+        name:
+          type: string
+        phone_number:
+          type: string
+        status:
+          type: string
+          enum: [disconnected, connecting, connected, banned]
+        created_at:
+          type: string
+          format: date-time
+
+    CreateInstanceRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+
+    InstanceSettings:
+      type: object
+      properties:
+        reject_call:
+          type: boolean
+        read_messages:
+          type: boolean
+        always_online:
+          type: boolean
+        ignore_groups:
+          type: boolean
+        sync_full_history:
+          type: boolean
+        webhook_url:
+          type: string
+          format: uri
+        webhook_events:
+          type: array
+          items:
+            type: string
+
+    SendTextRequest:
+      type: object
+      required: [to, text]
+      properties:
+        to:
+          type: string
+          description: Phone number (e.g. 5511999999999) or full JID
+        text:
+          type: string
+        quoted_id:
+          type: string
+          description: WhatsApp message ID to quote/reply to
+        send_at:
+          type: string
+          format: date-time
+          description: Future timestamp to schedule delivery (RFC3339)
+
+    SendMediaRequest:
+      type: object
+      required: [to, type, data, mime_type]
+      properties:
+        to:
+          type: string
+        type:
+          type: string
+          enum: [image, video, audio, document, sticker]
+        data:
+          type: string
+          format: byte
+          description: Base64-encoded file bytes
+        mime_type:
+          type: string
+        file_name:
+          type: string
+        caption:
+          type: string
+        send_at:
+          type: string
+          format: date-time
+
+    SendReactionRequest:
+      type: object
+      required: [to, message_id]
+      properties:
+        to:
+          type: string
+        message_id:
+          type: string
+        reaction:
+          type: string
+          description: Emoji character, or empty string to remove the reaction
+
+    MarkReadRequest:
+      type: object
+      required: [chat, message_ids]
+      properties:
+        chat:
+          type: string
+        message_ids:
+          type: array
+          items:
+            type: string
+
+    BatchTextRequest:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            required: [to, text]
+            properties:
+              to:
+                type: string
+              text:
+                type: string
+              send_at:
+                type: string
+                format: date-time
+
+    BatchResultItem:
+      type: object
+      properties:
+        index:
+          type: integer
+        message:
+          $ref: '#/components/schemas/Message'
+        error:
+          type: string
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        instance_id:
+          type: string
+        whatsapp_message_id:
+          type: string
+        direction:
+          type: string
+          enum: [inbound, outbound]
+        status:
+          type: string
+          enum: [pending, scheduled, queued, sent, delivered, read, failed, revoked, cancelled]
+        from_jid:
+          type: string
+        to_jid:
+          type: string
+        chat_jid:
+          type: string
+        is_group:
+          type: boolean
+        type:
+          type: string
+          enum: [text, image, video, audio, document, sticker, reaction]
+        content:
+          type: object
+        scheduled_at:
+          type: string
+          format: date-time
+        sent_at:
+          type: string
+          format: date-time
+        delivered_at:
+          type: string
+          format: date-time
+        read_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    CreateWebhookRequest:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+          description: Event types to receive; empty = all events

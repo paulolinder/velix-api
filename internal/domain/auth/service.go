@@ -1,0 +1,271 @@
+package auth
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"strings"
+	"time"
+	"unicode"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/rs/zerolog"
+	"golang.org/x/crypto/bcrypt"
+
+	"velix/internal/logger"
+)
+
+const (
+	bcryptCost   = 12
+	apiKeyLength = 32 // bytes → 64 hex chars
+	keyPrefix    = "wapi_"
+)
+
+// Service handles workspace registration, authentication, and API key management.
+type Service struct {
+	repo      Repository
+	jwtSecret []byte
+	jwtExpiry time.Duration
+	log       zerolog.Logger
+}
+
+// NewService creates a new auth service.
+func NewService(repo Repository, jwtSecret string, jwtExpiry time.Duration) *Service {
+	return &Service{
+		repo:      repo,
+		jwtSecret: []byte(jwtSecret),
+		jwtExpiry: jwtExpiry,
+		log:       logger.New("auth-service"),
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Workspace registration
+// ---------------------------------------------------------------------------
+
+// Register creates a new workspace and its first admin user atomically.
+// Returns the workspace, user, and a signed JWT.
+func (s *Service) Register(ctx context.Context, workspaceName, slug, email, password string) (*Workspace, *User, string, error) {
+	if err := validatePassword(password); err != nil {
+		return nil, nil, "", err
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("hash password: %w", err)
+	}
+
+	ws, err := s.repo.CreateWorkspace(ctx, &Workspace{Name: workspaceName, Slug: slug})
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("create workspace: %w", err)
+	}
+
+	user, err := s.repo.CreateUser(ctx, &User{
+		WorkspaceID:  ws.ID,
+		Email:        email,
+		PasswordHash: string(hash),
+		Role:         RoleAdmin,
+	})
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("create user: %w", err)
+	}
+
+	token, err := s.signToken(user)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	s.log.Info().Str("workspace", ws.ID).Str("user", user.ID).Msg("Workspace registered")
+	return ws, user, token, nil
+}
+
+// ---------------------------------------------------------------------------
+// Login
+// ---------------------------------------------------------------------------
+
+// Login validates credentials and returns a signed JWT.
+func (s *Service) Login(ctx context.Context, email, password string) (*User, string, error) {
+	user, err := s.repo.GetUserByEmail(ctx, email)
+	if err != nil {
+		return nil, "", ErrInvalidCredentials
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		return nil, "", ErrInvalidCredentials
+	}
+
+	if err := s.repo.UpdateLastLogin(ctx, user.ID); err != nil {
+		s.log.Warn().Err(err).Str("user", user.ID).Msg("Failed to update last_login_at")
+	}
+
+	token, err := s.signToken(user)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return user, token, nil
+}
+
+// ---------------------------------------------------------------------------
+// JWT
+// ---------------------------------------------------------------------------
+
+// ParseToken validates a JWT string and returns the embedded claims.
+func (s *Service) ParseToken(tokenStr string) (*Claims, error) {
+	t, err := jwt.Parse(tokenStr, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return s.jwtSecret, nil
+	}, jwt.WithValidMethods([]string{"HS256"}))
+
+	if err != nil || !t.Valid {
+		return nil, ErrInvalidToken
+	}
+
+	mc, ok := t.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, ErrInvalidToken
+	}
+
+	return &Claims{
+		UserID:      stringClaim(mc, "uid"),
+		WorkspaceID: stringClaim(mc, "wid"),
+		Email:       stringClaim(mc, "email"),
+		Role:        Role(stringClaim(mc, "role")),
+	}, nil
+}
+
+func (s *Service) signToken(user *User) (string, error) {
+	claims := jwt.MapClaims{
+		"uid":   user.ID,
+		"wid":   user.WorkspaceID,
+		"email": user.Email,
+		"role":  string(user.Role),
+		"exp":   time.Now().Add(s.jwtExpiry).Unix(),
+		"iat":   time.Now().Unix(),
+	}
+	t := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := t.SignedString(s.jwtSecret)
+	if err != nil {
+		return "", fmt.Errorf("sign JWT: %w", err)
+	}
+	return signed, nil
+}
+
+// ---------------------------------------------------------------------------
+// API Keys
+// ---------------------------------------------------------------------------
+
+// CreateAPIKey generates a new API key for a workspace.
+// The raw secret is returned once and never stored — only its bcrypt hash is kept.
+func (s *Service) CreateAPIKey(ctx context.Context, workspaceID, userID, name string, expiresAt *time.Time, scopes []string) (*APIKey, string, error) {
+	raw, err := generateAPIKey()
+	if err != nil {
+		return nil, "", fmt.Errorf("generate key: %w", err)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(raw), bcryptCost)
+	if err != nil {
+		return nil, "", fmt.Errorf("hash key: %w", err)
+	}
+
+	prefix := keyPrefix + raw[:12]
+
+	key, err := s.repo.CreateAPIKey(ctx, &APIKey{
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		KeyHash:     string(hash),
+		KeyPrefix:   prefix,
+		Name:        name,
+		ExpiresAt:   expiresAt,
+		Scopes:      scopes,
+	})
+	if err != nil {
+		return nil, "", fmt.Errorf("persist key: %w", err)
+	}
+
+	return key, raw, nil
+}
+
+// ValidateAPIKey checks an API key string against stored hashes.
+// It looks up candidates by key prefix (first 12 chars after "wapi_") for efficiency.
+func (s *Service) ValidateAPIKey(ctx context.Context, raw string) (*APIKey, error) {
+	if !strings.HasPrefix(raw, keyPrefix) || len(raw) < len(keyPrefix)+12 {
+		return nil, ErrInvalidAPIKey
+	}
+
+	prefix := keyPrefix + raw[len(keyPrefix):len(keyPrefix)+12]
+	key, err := s.repo.GetAPIKeyByPrefix(ctx, prefix)
+	if err != nil || !key.IsValid() {
+		return nil, ErrInvalidAPIKey
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(key.KeyHash), []byte(raw)); err != nil {
+		return nil, ErrInvalidAPIKey
+	}
+
+	// Best-effort touch — don't fail the request if this errors.
+	_ = s.repo.TouchAPIKey(ctx, key.ID)
+
+	return key, nil
+}
+
+// ListAPIKeys returns all keys for a workspace (hashes are not included in response).
+func (s *Service) ListAPIKeys(ctx context.Context, workspaceID string) ([]*APIKey, error) {
+	return s.repo.ListAPIKeys(ctx, workspaceID)
+}
+
+// RevokeAPIKey marks a key as revoked.
+func (s *Service) RevokeAPIKey(ctx context.Context, keyID, workspaceID string) error {
+	return s.repo.RevokeAPIKey(ctx, keyID, workspaceID)
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+func generateAPIKey() (string, error) {
+	b := make([]byte, apiKeyLength)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
+func validatePassword(p string) error {
+	if len(p) < 8 {
+		return fmt.Errorf("%w: at least 8 characters required", ErrWeakPassword)
+	}
+	var hasUpper, hasLower, hasDigit bool
+	for _, r := range p {
+		switch {
+		case unicode.IsUpper(r):
+			hasUpper = true
+		case unicode.IsLower(r):
+			hasLower = true
+		case unicode.IsDigit(r):
+			hasDigit = true
+		}
+	}
+	if !hasUpper || !hasLower || !hasDigit {
+		return fmt.Errorf("%w: must contain uppercase, lowercase, and a digit", ErrWeakPassword)
+	}
+	return nil
+}
+
+func stringClaim(mc jwt.MapClaims, key string) string {
+	if v, ok := mc[key].(string); ok {
+		return v
+	}
+	return ""
+}
+
+// Sentinel errors.
+var (
+	ErrInvalidCredentials = fmt.Errorf("invalid email or password")
+	ErrInvalidToken       = fmt.Errorf("invalid or expired token")
+	ErrInvalidAPIKey      = fmt.Errorf("invalid or revoked API key")
+	ErrWeakPassword       = fmt.Errorf("password too weak")
+)

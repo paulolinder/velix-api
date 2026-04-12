@@ -2,6 +2,7 @@
 package auth
 
 import (
+	"strings"
 	"time"
 
 	"velix/internal/domain/auth"
@@ -22,10 +23,12 @@ type LoginRequest struct {
 }
 
 // CreateAPIKeyRequest is the body for POST /v1/auth/api-keys.
+// Set InstanceID to create a key scoped to a single instance (no expiry by default).
 type CreateAPIKeyRequest struct {
-	Name      string     `json:"name"`
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
-	Scopes    []string   `json:"scopes,omitempty"`
+	Name       string     `json:"name"`
+	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
+	Scopes     []string   `json:"scopes,omitempty"`
+	InstanceID string     `json:"instance_id,omitempty"` // if set, key is restricted to this instance
 }
 
 // RegisterResponse is returned after a successful registration.
@@ -66,6 +69,7 @@ type APIKeyResponse struct {
 	KeyPrefix   string     `json:"key_prefix"`
 	Name        string     `json:"name,omitempty"`
 	Scopes      []string   `json:"scopes"`
+	InstanceID  string     `json:"instance_id,omitempty"` // non-empty when key is instance-scoped
 	LastUsedAt  *time.Time `json:"last_used_at,omitempty"`
 	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
 	RevokedAt   *time.Time `json:"revoked_at,omitempty"`
@@ -98,12 +102,20 @@ func apiKeyFromDomain(k *auth.APIKey) *APIKeyResponse {
 	if scopes == nil {
 		scopes = []string{}
 	}
+	var instanceID string
+	for _, s := range scopes {
+		if after, ok := strings.CutPrefix(s, "instance:"); ok {
+			instanceID = after
+			break
+		}
+	}
 	return &APIKeyResponse{
 		ID:          k.ID,
 		WorkspaceID: k.WorkspaceID,
 		KeyPrefix:   k.KeyPrefix,
 		Name:        k.Name,
 		Scopes:      scopes,
+		InstanceID:  instanceID,
 		LastUsedAt:  k.LastUsedAt,
 		ExpiresAt:   k.ExpiresAt,
 		RevokedAt:   k.RevokedAt,

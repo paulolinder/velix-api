@@ -153,9 +153,18 @@
                placeholder="Servidor de produção">
       </div>
       <div class="mb-6">
-        <label class="block text-sm font-medium text-gray-300 mb-1.5">Expira em <span class="text-gray-500 font-normal">(opcional)</span></label>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="text-sm font-medium text-gray-300">Expira em</label>
+          <label class="flex items-center gap-2 cursor-pointer text-xs text-gray-400 hover:text-gray-300 transition">
+            <input type="checkbox" x-model="form.no_expiry" class="w-3.5 h-3.5 rounded accent-green-500">
+            Sem expiração
+          </label>
+        </div>
         <input x-model="form.expires_at" type="datetime-local"
+               :disabled="form.no_expiry"
+               :class="form.no_expiry ? 'opacity-40 cursor-not-allowed' : ''"
                class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+        <p x-show="form.no_expiry" class="mt-1.5 text-xs text-green-400">Esta chave nunca vai expirar.</p>
       </div>
       <div x-show="formError" x-text="formError" class="mb-4 text-red-400 text-sm"></div>
       <div class="flex gap-3">
@@ -184,7 +193,7 @@ function page() {
     loading: false,
     error: '',
     createModal: false,
-    form: { name: '', expires_at: '' },
+    form: { name: '', expires_at: '', no_expiry: false },
     formLoading: false,
     formError: '',
     newKey: '',
@@ -208,7 +217,7 @@ function page() {
     },
 
     openCreate() {
-      this.form = { name: '', expires_at: '' };
+      this.form = { name: '', expires_at: '', no_expiry: false };
       this.formError = '';
       this.newKey = '';
       this.copied = false;
@@ -227,7 +236,7 @@ function page() {
       try {
         const body = {};
         if (this.form.name.trim()) body.name = this.form.name.trim();
-        if (this.form.expires_at) body.expires_at = new Date(this.form.expires_at).toISOString();
+        if (!this.form.no_expiry && this.form.expires_at) body.expires_at = new Date(this.form.expires_at).toISOString();
         const d = await apiCall('POST', '/auth/api-keys', body);
         this.newKey = d.key;
         await this.load();

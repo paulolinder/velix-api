@@ -143,6 +143,12 @@
                             class="px-3 py-1.5 text-xs font-medium bg-gray-700 hover:bg-blue-700 text-gray-300 hover:text-white rounded-lg transition">
                       Configurações
                     </button>
+                    <!-- API Key -->
+                    <button @click="genInstanceKey(inst)"
+                            class="px-3 py-1.5 text-xs font-medium bg-gray-700 hover:bg-yellow-700 text-gray-300 hover:text-yellow-200 rounded-lg transition"
+                            title="Gerar chave de API exclusiva desta instância">
+                      🔑 Chave de API
+                    </button>
                     <!-- Delete -->
                     <button @click="deleteInst(inst)"
                             class="px-3 py-1.5 text-xs font-medium bg-gray-800 hover:bg-red-900 text-gray-400 hover:text-red-300 rounded-lg transition">
@@ -157,6 +163,39 @@
       </div>
     </div>
   </main>
+</div>
+
+<!-- Instance API Key Modal -->
+<div x-show="instKeyModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" @keydown.escape.window="instKeyModal=null">
+  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl" @click.stop>
+    <h2 class="text-lg font-bold text-white mb-1">Chave de API da Instância</h2>
+    <p class="text-sm text-gray-400 mb-5" x-text="instKeyModal?.name"></p>
+
+    <div x-show="instKeyLoading" class="text-center py-6 text-gray-500 text-sm">Gerando chave…</div>
+
+    <div x-show="!instKeyLoading && instKeyValue">
+      <div class="bg-gray-950 border border-gray-700 rounded-xl p-3 mb-3">
+        <p class="text-xs text-gray-500 mb-1">Chave (salve agora — não será exibida novamente)</p>
+        <p class="font-mono text-green-400 text-sm break-all" x-text="instKeyValue"></p>
+      </div>
+      <div class="bg-blue-950/40 border border-blue-800/50 rounded-xl p-3 mb-5 text-xs text-blue-300 space-y-1">
+        <p class="font-semibold">Esta chave:</p>
+        <p>✓ Nunca expira</p>
+        <p>✓ Funciona <strong>somente</strong> para esta instância</p>
+        <p>✓ Use como <code class="bg-blue-900/50 px-1 rounded">X-API-Key</code> ou <code class="bg-blue-900/50 px-1 rounded">Authorization: Bearer</code></p>
+      </div>
+      <button @click="copyInstKey()" class="w-full bg-gray-800 hover:bg-gray-700 text-white font-medium py-2.5 rounded-xl transition mb-2">
+        <span x-text="instKeyCopied ? '✓ Copiado!' : 'Copiar chave'"></span>
+      </button>
+    </div>
+
+    <div x-show="instKeyError" x-text="instKeyError" class="mb-4 text-red-400 text-sm"></div>
+
+    <button @click="instKeyModal=null; instKeyValue=''; instKeyCopied=false"
+            class="w-full bg-gray-800 hover:bg-gray-700 text-white font-medium py-2.5 rounded-xl transition">
+      Fechar
+    </button>
+  </div>
 </div>
 
 <!-- Create Modal -->
@@ -452,6 +491,11 @@ function page() {
     settingsSaving: false,
     chatwootShowToken: false,
     settingsError: '',
+    instKeyModal: null,
+    instKeyValue: '',
+    instKeyLoading: false,
+    instKeyError: '',
+    instKeyCopied: false,
     availableEvents: [
       { key: 'messages.received',      label: 'Mensagem Recebida' },
       { key: 'messages.sent',          label: 'Mensagem Enviada' },
@@ -662,7 +706,33 @@ function page() {
         banned:       '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-900 text-red-300"><span class="w-1.5 h-1.5 bg-red-400 rounded-full"></span>banido</span>',
       };
       return map[status] || '<span class="text-gray-500 text-xs">' + status + '</span>';
-    }
+    },
+
+    async genInstanceKey(inst) {
+      this.instKeyModal = { id: inst.id, name: inst.name };
+      this.instKeyValue = '';
+      this.instKeyError = '';
+      this.instKeyCopied = false;
+      this.instKeyLoading = true;
+      try {
+        const d = await apiCall('POST', '/auth/api-keys', {
+          name: 'Instância: ' + inst.name,
+          instance_id: inst.id,
+        });
+        this.instKeyValue = d.key;
+      } catch (e) {
+        this.instKeyError = e.message;
+      } finally {
+        this.instKeyLoading = false;
+      }
+    },
+
+    copyInstKey() {
+      navigator.clipboard.writeText(this.instKeyValue).then(() => {
+        this.instKeyCopied = true;
+        setTimeout(() => { this.instKeyCopied = false; }, 2000);
+      });
+    },
   };
 }
 </script>

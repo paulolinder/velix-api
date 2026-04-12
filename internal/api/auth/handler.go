@@ -127,6 +127,13 @@ func (h *Handler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If scoped to an instance: auto-add scope, clear expiry (never expires).
+	if req.InstanceID != "" {
+		scope := "instance:" + req.InstanceID
+		req.Scopes = append(req.Scopes, scope)
+		req.ExpiresAt = nil
+	}
+
 	key, rawSecret, err := h.svc.CreateAPIKey(r.Context(), claims.WorkspaceID, claims.UserID, req.Name, req.ExpiresAt, req.Scopes)
 	if err != nil {
 		apipkg.LogAndFail(w, r, err, "create API key")

@@ -11,6 +11,20 @@ import (
 	"velix/internal/domain/auth"
 )
 
+// instanceScopePrefix is the prefix used to scope an API key to a single instance.
+const instanceScopePrefix = "instance:"
+
+// instanceScopeID extracts the instance UUID from claims scopes.
+// Returns "" if no instance scope is set (meaning the key has full workspace access).
+func instanceScopeID(claims *auth.Claims) string {
+	for _, s := range claims.Scopes {
+		if after, ok := strings.CutPrefix(s, instanceScopePrefix); ok {
+			return after
+		}
+	}
+	return ""
+}
+
 // AuthService is the interface the Authenticate middleware depends on.
 // auth.Service satisfies this interface.
 type AuthService interface {
@@ -90,6 +104,9 @@ type InstanceOwnership interface {
 
 // RequireInstanceOwner returns middleware that verifies the {instanceID} URL param
 // belongs to the authenticated user's workspace. Blocks cross-tenant access.
+//
+// If the API key carries an instance scope (e.g. "instance:uuid"), the request is
+// additionally restricted to that exact instance — other instances return 404.
 func RequireInstanceOwner(checker InstanceOwnership) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -100,6 +117,11 @@ func RequireInstanceOwner(checker InstanceOwnership) func(http.Handler) http.Han
 			}
 			instanceID := chi.URLParam(r, "instanceID")
 			if instanceID == "" {
+				apipkg.WriteError(w, r, apipkg.ErrInstanceNotFound)
+				return
+			}
+			// If the API key is scoped to a specific instance, enforce it.
+			if scopedID := instanceScopeID(claims); scopedID != "" && scopedID != instanceID {
 				apipkg.WriteError(w, r, apipkg.ErrInstanceNotFound)
 				return
 			}

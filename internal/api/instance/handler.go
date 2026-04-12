@@ -304,6 +304,27 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	if req.HumanPauseDuration != nil {
 		current.HumanPauseDuration = *req.HumanPauseDuration
 	}
+	if req.ChatwootEnabled != nil {
+		current.ChatwootEnabled = *req.ChatwootEnabled
+	}
+	if req.ChatwootURL != nil {
+		current.ChatwootURL = *req.ChatwootURL
+	}
+	if req.ChatwootToken != nil {
+		current.ChatwootToken = *req.ChatwootToken
+	}
+	if req.ChatwootAccountID != nil {
+		current.ChatwootAccountID = *req.ChatwootAccountID
+	}
+	if req.ChatwootInboxID != nil {
+		current.ChatwootInboxID = *req.ChatwootInboxID
+	}
+	if req.ChatwootSignMsgs != nil {
+		current.ChatwootSignMsgs = *req.ChatwootSignMsgs
+	}
+	if req.ChatwootReopenConv != nil {
+		current.ChatwootReopenConv = *req.ChatwootReopenConv
+	}
 
 	updated, err := h.svc.UpdateSettings(r.Context(), wsID, id, current)
 	if handleErr(w, r, err, "update settings") {

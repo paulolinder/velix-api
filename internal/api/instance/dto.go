@@ -61,6 +61,14 @@ type SettingsResponse struct {
 	WebhookURL         string   `json:"webhook_url"`
 	WebhookEvents      []string `json:"webhook_events"`
 	HumanPauseDuration int      `json:"human_pause_duration"`
+	// Chatwoot
+	ChatwootEnabled    bool   `json:"chatwoot_enabled"`
+	ChatwootURL        string `json:"chatwoot_url"`
+	ChatwootToken      string `json:"chatwoot_token"`
+	ChatwootAccountID  int64  `json:"chatwoot_account_id"`
+	ChatwootInboxID    int64  `json:"chatwoot_inbox_id"`
+	ChatwootSignMsgs   bool   `json:"chatwoot_sign_msgs"`
+	ChatwootReopenConv bool   `json:"chatwoot_reopen_conv"`
 }
 
 // UpdateSettingsRequest is the body for PATCH .../settings.
@@ -74,6 +82,14 @@ type UpdateSettingsRequest struct {
 	WebhookURL         *string   `json:"webhook_url,omitempty"`
 	WebhookEvents      *[]string `json:"webhook_events,omitempty"`
 	HumanPauseDuration *int      `json:"human_pause_duration,omitempty"`
+	// Chatwoot
+	ChatwootEnabled    *bool   `json:"chatwoot_enabled,omitempty"`
+	ChatwootURL        *string `json:"chatwoot_url,omitempty"`
+	ChatwootToken      *string `json:"chatwoot_token,omitempty"`
+	ChatwootAccountID  *int64  `json:"chatwoot_account_id,omitempty"`
+	ChatwootInboxID    *int64  `json:"chatwoot_inbox_id,omitempty"`
+	ChatwootSignMsgs   *bool   `json:"chatwoot_sign_msgs,omitempty"`
+	ChatwootReopenConv *bool   `json:"chatwoot_reopen_conv,omitempty"`
 }
 
 func settingsFromDomain(s *instance.Settings) *SettingsResponse {
@@ -90,6 +106,13 @@ func settingsFromDomain(s *instance.Settings) *SettingsResponse {
 		WebhookURL:         s.WebhookURL,
 		WebhookEvents:      events,
 		HumanPauseDuration: s.HumanPauseDuration,
+		ChatwootEnabled:    s.ChatwootEnabled,
+		ChatwootURL:        s.ChatwootURL,
+		ChatwootToken:      s.ChatwootToken,
+		ChatwootAccountID:  s.ChatwootAccountID,
+		ChatwootInboxID:    s.ChatwootInboxID,
+		ChatwootSignMsgs:   s.ChatwootSignMsgs,
+		ChatwootReopenConv: s.ChatwootReopenConv,
 	}
 }
 

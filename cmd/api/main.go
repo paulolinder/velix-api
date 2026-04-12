@@ -14,6 +14,7 @@ import (
 	waengine "velix/internal/engine/whatsmeow"
 	"velix/internal/config"
 	"velix/internal/domain/auth"
+	"velix/internal/domain/chatwoot"
 	"velix/internal/domain/instance"
 	"velix/internal/domain/message"
 	"velix/internal/domain/webhook"
@@ -81,10 +82,11 @@ func main() {
 	}()
 
 	// 7. Wire up domain services.
-	authRepo     := repo.NewAuthRepo(db)
-	instanceRepo := repo.NewInstanceRepo(db)
-	messageRepo  := repo.NewMessageRepo(db)
-	auditRepo    := repo.NewAuditRepo(db)
+	authRepo      := repo.NewAuthRepo(db)
+	instanceRepo  := repo.NewInstanceRepo(db)
+	messageRepo   := repo.NewMessageRepo(db)
+	auditRepo     := repo.NewAuditRepo(db)
+	chatwootRepo  := repo.NewChatwootRepo(db)
 
 	authSvc     := auth.NewService(authRepo, cfg.Auth.JWTSecret, cfg.Auth.JWTExpiry)
 	instanceSvc := instance.NewService(instanceRepo, eng)
@@ -93,6 +95,9 @@ func main() {
 	// Webhook service subscribes to engine events and delivers to per-instance URLs.
 	// The engine holds a reference via the handler closure — no need to keep it in Deps.
 	webhook.NewService(eng, instanceSvc)
+
+	// Chatwoot service: bridges WhatsApp events ↔ Chatwoot inboxes.
+	chatwootSvc := chatwoot.NewService(eng, instanceSvc, nil, chatwootRepo)
 
 	// 8. Restore persisted instances (auto-reconnect previously connected ones).
 	if err := instanceSvc.RestoreFromDB(ctx); err != nil {
@@ -111,6 +116,7 @@ func main() {
 		AuthService:     authSvc,
 		InstanceService: instanceSvc,
 		MessageService:  messageSvc,
+		ChatwootService: chatwootSvc,
 		AuditRepo:       auditRepo,
 		MediaStorePath:  cfg.Media.StoragePath,
 		Redis:           rdb,

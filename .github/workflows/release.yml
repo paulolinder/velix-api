@@ -56,13 +56,13 @@ jobs:
             ## Instalação
 
             ```bash
-            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/install.sh | bash
+            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/master/scripts/install.sh | bash
             ```
 
             ## Atualização
 
             ```bash
-            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/update.sh | sudo bash -s ${{ github.ref_name }}
+            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/master/scripts/update.sh | sudo bash -s ${{ github.ref_name }}
             ```
 
             ## Imagem Docker

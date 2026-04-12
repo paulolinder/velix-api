@@ -175,13 +175,13 @@ func (r *AuthRepo) GetAPIKeyByPrefix(ctx context.Context, prefix string) (*auth.
 }
 
 func (r *AuthRepo) RevokeAPIKey(ctx context.Context, keyID, workspaceID string) error {
-	const q = `UPDATE api_keys SET revoked_at=NOW() WHERE id=$1 AND workspace_id=$2 AND revoked_at IS NULL`
+	const q = `DELETE FROM api_keys WHERE id=$1 AND workspace_id=$2`
 	tag, err := r.db.Exec(ctx, q, keyID, workspaceID)
 	if err != nil {
-		return fmt.Errorf("revoke api key: %w", err)
+		return fmt.Errorf("delete api key: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("api key not found or already revoked")
+		return fmt.Errorf("api key not found")
 	}
 	return nil
 }

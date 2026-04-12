@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================
 # Velix API — Instalador
-# Uso: curl -fsSL https://raw.githubusercontent.com/paulolinder/velix-api/main/scripts/install.sh | bash
+# Uso: curl -fsSL https://raw.githubusercontent.com/paulolinder/velix-api/master/scripts/install.sh | bash
 # Ou com versão específica:
 #   curl -fsSL .../install.sh | bash -s v1.2.0
 # ============================================================
@@ -10,7 +10,7 @@ set -euo pipefail
 REPO="paulolinder/velix-api"
 INSTALL_DIR="/opt/velix-api"
 VERSION="${1:-latest}"
-RAW_BASE="https://raw.githubusercontent.com/${REPO}/main"
+RAW_BASE="https://raw.githubusercontent.com/${REPO}/master"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 info()    { echo -e "${GREEN}==>${NC} $*"; }

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Velix API — Painel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
+  <script src="/admin/shared.js"></script>
+  <style>[x-cloak]{display:none!important}</style>
+</head>
+<body class="bg-gray-950 text-gray-100" x-data="page()" x-init="init()" x-cloak>
+<div class="flex h-screen overflow-hidden">
+
+  <!-- Sidebar -->
+  <aside class="w-60 bg-gray-900 border-r border-gray-800 flex flex-col flex-shrink-0" id="sidebar">
+    <div class="p-5 border-b border-gray-800">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-green-500 rounded-xl flex items-center justify-center text-xl">W</div>
+        <span class="font-bold text-white">Velix API</span>
+      </div>
+    </div>
+    <nav class="flex-1 p-3 space-y-0.5" id="nav">
+      <a href="/admin/dashboard.html" class="nav-item active">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+        Painel
+      </a>
+      <a href="/admin/instances.html" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+        Instâncias
+      </a>
+      <a href="/admin/api-keys.html" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+        Chaves de API
+      </a>
+      <a href="/admin/messages.html" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        Mensagens
+      </a>
+      <a href="/admin/scheduled.html" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Agendamentos
+      </a>
+      <a href="/admin/usage.html" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        Uso
+      </a>
+      <a href="/docs" target="_blank" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Docs da API
+      </a>
+    </nav>
+    <div class="p-4 border-t border-gray-800">
+      <p class="text-xs text-gray-500 truncate mb-2" x-text="email"></p>
+      <button @click="doLogout()" class="w-full text-left text-xs text-gray-500 hover:text-red-400 transition flex items-center gap-2">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        Sair
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 overflow-auto">
+    <div class="p-8">
+      <div class="mb-8">
+        <h1 class="text-2xl font-bold text-white">Painel</h1>
+        <p class="text-gray-500 text-sm mt-1">Visão geral do seu workspace</p>
+      </div>
+
+      <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+          <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Total de Instâncias</p>
+          <p class="text-3xl font-bold text-white mt-1" x-text="stats.total_instances ?? '—'"></p>
+        </div>
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+          <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Conectado</p>
+          <p class="text-3xl font-bold text-green-400 mt-1" x-text="stats.connected_instances ?? '—'"></p>
+        </div>
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+          <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Desconectado</p>
+          <p class="text-3xl font-bold text-gray-400 mt-1" x-text="stats.total_instances != null ? stats.total_instances - stats.connected_instances : '—'"></p>
+        </div>
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+          <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Chaves de API</p>
+          <p class="text-3xl font-bold text-white mt-1" x-text="stats.total_api_keys ?? '—'"></p>
+          <p class="text-xs text-gray-500 mt-1" x-text="(stats.active_api_keys ?? 0) + ' ativos'"></p>
+        </div>
+      </div>
+
+      <div class="mb-8">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Ações Rápidas</h2>
+        <div class="flex flex-wrap gap-3">
+          <a href="/admin/instances.html" class="bg-green-600 hover:bg-green-500 text-white text-sm font-medium px-4 py-2 rounded-xl transition">+ Nova Instância</a>
+          <a href="/admin/api-keys.html" class="bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition">+ Nova Chave de API</a>
+          <a href="/admin/scheduled.html" class="bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition">Mensagens Agendadas</a>
+          <a href="/docs" target="_blank" class="bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition">Docs da API ↗</a>
+        </div>
+      </div>
+
+      <div x-show="error" class="bg-red-950 border border-red-800 rounded-xl p-4 text-red-400 text-sm" x-text="error"></div>
+    </div>
+  </main>
+</div>
+
+<style>
+  .nav-item { display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.75rem; border-radius:0.5rem; font-size:0.875rem; font-weight:500; color:#9ca3af; transition:all 150ms; }
+  .nav-item:hover { color:#fff; background:#1f2937; }
+  .nav-item.active { color:#fff; background:#1f2937; }
+</style>
+
+<script>
+function page() {
+  return {
+    email: getUserEmail(),
+    stats: {},
+    error: '',
+
+    init() {
+      if (!requireAuth()) return;
+      this.loadStats();
+    },
+
+    async loadStats() {
+      try {
+        this.stats = await apiCall('GET', '/admin/stats') || {};
+      } catch (e) {
+        this.error = e.message;
+      }
+    }
+  };
+}
+</script>
+</body>
+</html>

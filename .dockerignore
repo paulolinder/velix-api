@@ -1,0 +1,10 @@
+.git
+.env
+*.env
+bin/
+data/
+coverage.out
+coverage.html
+*.md
+deployments/
+scripts/

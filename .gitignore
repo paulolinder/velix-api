@@ -1,0 +1,40 @@
+# Binaries
+bin/
+*.exe
+
+# Environment (contains secrets)
+.env
+*.env
+
+# Data directories
+data/
+
+# Coverage
+coverage.out
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Binários
+velix-api.exe
+velix-api
+whatsapi.exe
+api.exe
+
+# Logs
+*.log
+server.log
+build_errors.txt
+build_result.txt
+
+# Backup de env
+.env.backup

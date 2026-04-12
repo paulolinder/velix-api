@@ -289,6 +289,21 @@ func (s *Service) UpdateSettings(ctx context.Context, workspaceID, instanceID st
 	return settings, nil
 }
 
+// GetChatwootSettings returns the Chatwoot configuration for an instance.
+// Used by the Chatwoot service without workspace ownership check (internal use only).
+func (s *Service) GetChatwootSettings(ctx context.Context, instanceID string) (*Settings, error) {
+	inst, err := s.repo.GetByID(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+	return &inst.Settings, nil
+}
+
+// GetByChatwootInboxID returns the instance configured for a given Chatwoot inbox ID.
+func (s *Service) GetByChatwootInboxID(ctx context.Context, inboxID int64) (*Instance, error) {
+	return s.repo.GetByChatwootInboxID(ctx, inboxID)
+}
+
 // GetInstanceWebhookSettings returns the per-instance webhook URL and event filter.
 // Used by webhook.Service to deliver events to instance-specific URLs.
 func (s *Service) GetInstanceWebhookSettings(ctx context.Context, instanceID string) (string, []string, error) {

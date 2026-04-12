@@ -27,4 +27,8 @@ type Repository interface {
 
 	// UpdateSettings persists the JSONB settings column for an instance.
 	UpdateSettings(ctx context.Context, id string, s *Settings) error
+
+	// GetByChatwootInboxID returns the instance whose Chatwoot inbox ID matches.
+	// Returns ErrNotFound if no enabled instance has that inbox ID.
+	GetByChatwootInboxID(ctx context.Context, inboxID int64) (*Instance, error)
 }

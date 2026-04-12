@@ -41,4 +41,14 @@ type Settings struct {
 	// 0 = disabled.  The webhook payload includes a "Paused" flag so external
 	// automation (e.g. n8n) can respect the pause window.
 	HumanPauseDuration int `json:"human_pause_duration"`
+
+	// Chatwoot integration — routes inbound WhatsApp messages to a Chatwoot inbox
+	// and forwards agent replies back to WhatsApp.
+	ChatwootEnabled    bool   `json:"chatwoot_enabled"`
+	ChatwootURL        string `json:"chatwoot_url,omitempty"`
+	ChatwootToken      string `json:"chatwoot_token,omitempty"`
+	ChatwootAccountID  int64  `json:"chatwoot_account_id,omitempty"`
+	ChatwootInboxID    int64  `json:"chatwoot_inbox_id,omitempty"`
+	ChatwootSignMsgs   bool   `json:"chatwoot_sign_msgs"`   // prefix outgoing msgs with agent name
+	ChatwootReopenConv bool   `json:"chatwoot_reopen_conv"` // reopen resolved conversations on new message
 }

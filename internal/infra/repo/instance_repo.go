@@ -158,6 +158,27 @@ func (r *InstanceRepo) UpdateSettings(ctx context.Context, id string, s *instanc
 	return nil
 }
 
+// GetByChatwootInboxID returns the instance whose Chatwoot inbox is configured with inboxID.
+func (r *InstanceRepo) GetByChatwootInboxID(ctx context.Context, inboxID int64) (*instance.Instance, error) {
+	const q = `
+		SELECT id, workspace_id, name, COALESCE(phone_number,''), status,
+		       COALESCE(jid,''), COALESCE(platform,''), COALESCE(business_name,''),
+		       COALESCE(proxy_url,''), settings, last_connected_at, created_at, updated_at
+		FROM instances
+		WHERE (settings->>'chatwoot_enabled')::boolean = true
+		  AND (settings->>'chatwoot_inbox_id')::bigint = $1
+		LIMIT 1`
+
+	inst, err := scanInstance(r.db.QueryRow(ctx, q, inboxID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, instance.ErrNotFound
+		}
+		return nil, err
+	}
+	return inst, nil
+}
+
 // Delete removes an instance row.
 func (r *InstanceRepo) Delete(ctx context.Context, id string) error {
 	const q = `DELETE FROM instances WHERE id=$1`

@@ -15,6 +15,7 @@ import (
 	adminapi    "velix/internal/api/admin"
 	auditapi    "velix/internal/api/audit"
 	authapi     "velix/internal/api/auth"
+	chatwootapi "velix/internal/api/chatwoot"
 	contactapi  "velix/internal/api/contact"
 	groupapi    "velix/internal/api/group"
 	instanceapi "velix/internal/api/instance"
@@ -87,6 +88,10 @@ func NewRouter(deps *Deps) http.Handler {
 		}
 		http.ServeFileFS(w, r, adminFS, file)
 	})
+
+	// ---- Chatwoot webhook (no auth — Chatwoot POSTs plain HTTP) ----
+	chatwootHandler := chatwootapi.NewHandler(deps.ChatwootService)
+	r.Post("/v1/chatwoot/webhook", chatwootHandler.Webhook)
 
 	// ---- WebSocket real-time events (auth via ?token=<jwt>) ----
 	wsHub := wsapi.NewHub(deps.Engine, deps.InstanceService)

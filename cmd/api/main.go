@@ -73,12 +73,13 @@ func main() {
 	if trialErr != nil {
 		appLog.Warn().Err(trialErr).Msg("Could not init trial — defaulting to expired")
 	}
+	trialExpired := trial.IsExpired()
 	if lic == nil || !lic.Valid {
-		if trial != nil && trial.IsExpired() {
+		if trialExpired {
 			appLog.Warn().
 				Int("trial_days", license.TrialDays).
 				Msg("Trial expired — set LICENSE_KEY to continue using Velix API")
-		} else if trial != nil {
+		} else {
 			appLog.Info().
 				Int("days_remaining", trial.DaysRemaining()).
 				Msg("Running in trial mode")
@@ -119,7 +120,7 @@ func main() {
 		}
 	} else {
 		// No valid license — check trial.
-		if trial != nil && trial.IsExpired() {
+		if trialExpired {
 			cfg.Engine.MaxInstances = 0 // trial expired: block all instance creation
 		} else {
 			cfg.Engine.MaxInstances = 2 // trial active: 2 instances

@@ -84,7 +84,7 @@ function fmtDateOnly(s) {
     });
     if (!r.ok) return;
     const d = await r.json();
-    status = d.data || d; // support both envelope and raw
+    status = d.data;
   } catch (_) { return; }
 
   if (!status || status.mode === 'licensed') return; // licensed — no banner

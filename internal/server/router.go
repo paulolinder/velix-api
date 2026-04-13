@@ -12,6 +12,7 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"golang.org/x/time/rate"
 
+	apipkg      "velix/internal/api"
 	adminapi    "velix/internal/api/admin"
 	auditapi    "velix/internal/api/audit"
 	authapi     "velix/internal/api/auth"
@@ -211,11 +212,7 @@ func licenseStatusHandler(deps *Deps) http.HandlerFunc {
 			}
 		}
 
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		enc := json.NewEncoder(w)
-		enc.SetEscapeHTML(false)
-		_ = enc.Encode(map[string]any{"success": true, "data": payload})
+		apipkg.WriteJSON(w, r, http.StatusOK, payload)
 	}
 }
 

@@ -79,7 +79,8 @@
         <div>
           <label class="block text-xs font-medium text-gray-400 mb-1.5">Senha</label>
           <input x-model="password" type="password" required autocomplete="new-password"
-                 class="field" placeholder="Mínimo 8 caracteres">
+                 class="field" placeholder="Ex: Senha123">
+          <p class="mt-1.5 text-xs text-gray-600">Mínimo 8 caracteres com maiúscula, minúscula e número.</p>
         </div>
 
         <div x-show="error" x-transition
@@ -161,7 +162,7 @@
           });
           const d = await r.json();
           if (!r.ok || !d.success) {
-            this.error = d.error?.message || 'Erro ao criar conta';
+            this.error = d.error?.message || d.message || 'Erro ao criar conta';
             return;
           }
           localStorage.setItem('wa_token', d.data.token);

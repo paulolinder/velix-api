@@ -1,12 +1,15 @@
 openapi: 3.0.3
 info:
-  title: WhatsAPI
+  title: Velix API
   description: |
-    Multi-tenant WhatsApp API. Manage instances, send messages (text, media, reactions),
-    receive real-time events via webhooks or WebSocket, and schedule messages for future delivery.
+    API WhatsApp multi-instância. Gerencie instâncias, envie mensagens (texto, mídia, reações),
+    receba eventos em tempo real via webhooks ou WebSocket e agende mensagens.
   version: "1.0.0"
   contact:
-    name: WhatsAPI Support
+    name: Velix Support
+  x-logo:
+    url: /admin/dist/velix-logo.svg
+    altText: Velix
 
 servers:
   - url: /v1

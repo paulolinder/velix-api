@@ -22,10 +22,10 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
 # ─────────────────────────────────────────────────────────────
 # Stage 2 — Runtime
 # ─────────────────────────────────────────────────────────────
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM alpine:3
 
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+RUN apk add --no-cache ca-certificates tzdata
+
 COPY --from=builder /app/bin/velix-api /velix-api
 
 VOLUME ["/data"]

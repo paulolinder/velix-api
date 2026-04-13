@@ -3,151 +3,187 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/admin/dist/favicon.svg">
   <title>Velix API — Mensagens</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="/admin/dist/main.css">
+  <script defer src="/admin/dist/alpine.min.js"></script>
   <script src="/admin/shared.js"></script>
-  <style>
-    [x-cloak]{display:none!important}
-    .nav-item { display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.75rem; border-radius:0.5rem; font-size:0.875rem; font-weight:500; color:#9ca3af; transition:all 150ms; }
-    .nav-item:hover { color:#fff; background:#1f2937; }
-    .nav-item.active { color:#fff; background:#1f2937; }
-  </style>
 </head>
-<body class="bg-gray-950 text-gray-100" x-data="page()" x-init="init()" x-cloak>
+<body class="bg-[#0d1117] text-gray-100" x-data="page()" x-init="init()" x-cloak>
 <div class="flex h-screen overflow-hidden">
 
   <!-- Sidebar -->
-  <aside class="w-60 bg-gray-900 border-r border-gray-800 flex flex-col flex-shrink-0">
-    <div class="p-5 border-b border-gray-800">
-      <div class="flex items-center gap-3">
-        <div class="w-9 h-9 bg-green-500 rounded-xl flex items-center justify-center text-xl">W</div>
-        <span class="font-bold text-white">Velix API</span>
+  <aside class="w-56 bg-[#0d1117] border-r border-[#1f2937] flex flex-col flex-shrink-0">
+    <div class="px-4 py-5 border-b border-[#1f2937]">
+      <div class="flex items-center gap-2.5">
+        <img src="/admin/dist/velix-logo.svg" alt="Velix" class="w-8 h-8 rounded-lg shadow-lg shadow-green-900/50">
+        <div>
+          <p class="font-semibold text-white text-sm leading-tight">Velix API</p>
+          <p class="text-[10px] text-gray-500">Admin</p>
+        </div>
       </div>
     </div>
-    <nav class="flex-1 p-3 space-y-0.5">
+    <nav class="flex-1 p-2.5 space-y-0.5">
       <a href="/admin/dashboard.html" class="nav-item">
-        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         Painel
       </a>
       <a href="/admin/instances.html" class="nav-item">
-        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
         Instâncias
       </a>
       <a href="/admin/messages.html" class="nav-item active">
-        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
         Mensagens
       </a>
       <a href="/admin/scheduled.html" class="nav-item">
-        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         Agendamentos
       </a>
       <a href="/admin/usage.html" class="nav-item">
-        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
         Uso
       </a>
+      <div class="border-t border-[#1f2937] my-2"></div>
       <a href="/docs" target="_blank" class="nav-item">
-        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         Docs da API
+        <svg class="w-3 h-3 ml-auto opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
       </a>
     </nav>
-    <div class="p-4 border-t border-gray-800">
-      <p class="text-xs text-gray-500 truncate mb-2" x-text="email"></p>
-      <button @click="doLogout()" class="w-full text-left text-xs text-gray-500 hover:text-red-400 transition flex items-center gap-2">
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-        Sair
-      </button>
+    <div class="p-3 border-t border-[#1f2937]">
+      <div class="flex items-center gap-2.5 px-2 py-2 rounded-lg">
+        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-green-500 to-emerald-700 flex items-center justify-center text-xs font-bold text-white flex-shrink-0" x-text="getEmailInitial()"></div>
+        <p class="text-xs text-gray-400 truncate flex-1" x-text="email"></p>
+        <button @click="doLogout()" class="text-gray-600 hover:text-red-400 transition" title="Sair">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        </button>
+      </div>
     </div>
   </aside>
 
   <!-- Main -->
   <main class="flex-1 overflow-auto">
-    <div class="p-8">
-      <div class="mb-8">
-        <h1 class="text-2xl font-bold text-white">Mensagens</h1>
-        <p class="text-gray-500 text-sm mt-1">Navegue pelo histórico de mensagens por instância e conversa</p>
+    <div class="max-w-6xl mx-auto p-6">
+
+      <!-- Header -->
+      <div class="mb-7">
+        <h1 class="text-xl font-semibold text-white">Mensagens</h1>
+        <p class="text-gray-500 text-sm mt-0.5">Histórico de mensagens por instância e conversa</p>
       </div>
 
       <!-- Filters -->
-      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-6 flex flex-wrap gap-4 items-end">
-        <div>
-          <label class="block text-xs text-gray-500 mb-1.5 uppercase tracking-wider">Instância</label>
-          <select x-model="filter.instanceID"
-                  class="bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500">
-            <option value="">Selecione a instância…</option>
-            <template x-for="inst in instances" :key="inst.id">
-              <option :value="inst.id" x-text="inst.name"></option>
-            </template>
-          </select>
+      <div class="bg-[#161b22] border border-[#1f2937] rounded-2xl p-4 mb-5">
+        <div class="flex flex-wrap gap-3 items-end">
+          <div class="flex-1 min-w-[200px]">
+            <label class="block text-xs text-gray-500 mb-1.5 font-medium">Instância</label>
+            <select x-model="filter.instanceID" class="field w-full">
+              <option value="">Selecione…</option>
+              <template x-for="inst in instances" :key="inst.id">
+                <option :value="inst.id" x-text="inst.name"></option>
+              </template>
+            </select>
+          </div>
+          <div class="flex-1 min-w-[260px]">
+            <label class="block text-xs text-gray-500 mb-1.5 font-medium">JID do Chat</label>
+            <input x-model="filter.chat" type="text"
+                   placeholder="5511999999999@s.whatsapp.net"
+                   @keydown.enter="page=0; loadMessages()"
+                   class="field w-full">
+          </div>
+          <button @click="page=0; loadMessages()"
+                  :disabled="!filter.instanceID || !filter.chat"
+                  class="btn btn-primary">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            Buscar
+          </button>
         </div>
-        <div>
-          <label class="block text-xs text-gray-500 mb-1.5 uppercase tracking-wider">JID do Chat</label>
-          <input x-model="filter.chat" type="text"
-                 placeholder="5511999999999@s.whatsapp.net"
-                 class="bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2 text-sm w-72 focus:outline-none focus:border-green-500 placeholder-gray-600">
-        </div>
-        <button @click="page=0; loadMessages()"
-                class="bg-green-600 hover:bg-green-500 text-white px-5 py-2 rounded-lg text-sm font-medium transition">
-          Buscar
-        </button>
       </div>
 
       <!-- Table -->
-      <div class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+      <div class="bg-[#161b22] border border-[#1f2937] rounded-2xl overflow-hidden">
         <table class="w-full text-sm">
-          <thead class="border-b border-gray-800">
+          <thead class="border-b border-[#1f2937]">
             <tr>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dir</th>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">De / Para</th>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prévia</th>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enviado em</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dir.</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">De / Para</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prévia</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enviado</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-800">
+          <tbody class="divide-y divide-[#1f2937]">
+
+            <!-- Loading -->
             <template x-if="loading">
-              <tr><td colspan="7" class="px-5 py-10 text-center text-gray-500">Carregando…</td></tr>
+              <tr>
+                <td colspan="7" class="px-4 py-10 text-center">
+                  <div class="flex items-center justify-center gap-2 text-gray-500 text-sm">
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                    Carregando…
+                  </div>
+                </td>
+              </tr>
             </template>
-            <template x-if="!loading && messages.length === 0 && searched">
-              <tr><td colspan="7" class="px-5 py-10 text-center text-gray-500">Nenhuma mensagem encontrada.</td></tr>
-            </template>
+
+            <!-- Prompt state -->
             <template x-if="!loading && !searched">
-              <tr><td colspan="7" class="px-5 py-10 text-center text-gray-500">Selecione uma instância e insira um JID de chat para buscar.</td></tr>
+              <tr>
+                <td colspan="7" class="px-4 py-14 text-center">
+                  <div class="flex flex-col items-center gap-2">
+                    <svg class="w-8 h-8 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    <p class="text-gray-500 text-sm">Selecione uma instância e insira um JID para buscar</p>
+                  </div>
+                </td>
+              </tr>
             </template>
+
+            <!-- Empty results -->
+            <template x-if="!loading && searched && messages.length === 0">
+              <tr>
+                <td colspan="7" class="px-4 py-10 text-center text-gray-500 text-sm">Nenhuma mensagem encontrada.</td>
+              </tr>
+            </template>
+
+            <!-- Rows -->
             <template x-for="m in messages" :key="m.id">
-              <tr class="hover:bg-gray-800/50 transition">
-                <td class="px-5 py-3 font-mono text-xs text-gray-500" x-text="m.id.slice(0,8)+'…'"></td>
-                <td class="px-5 py-3">
+              <tr class="hover:bg-white/[.02] transition">
+                <td class="px-4 py-3 font-mono text-xs text-gray-600" x-text="m.id.slice(0,8)+'…'"></td>
+                <td class="px-4 py-3">
                   <span :class="m.direction==='inbound'
                         ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                         : 'bg-green-500/10 text-green-400 border border-green-500/20'"
-                        class="px-2 py-0.5 rounded-full text-xs font-medium" x-text="m.direction"></span>
+                        class="px-1.5 py-0.5 rounded-full text-xs font-medium" x-text="m.direction==='inbound' ? '↓ in' : '↑ out'"></span>
                 </td>
-                <td class="px-5 py-3">
+                <td class="px-4 py-3">
                   <span :class="statusBadge(m.status)"
-                        class="px-2 py-0.5 rounded-full text-xs font-medium" x-text="m.status"></span>
+                        class="px-1.5 py-0.5 rounded-full text-xs font-medium" x-text="m.status"></span>
                 </td>
-                <td class="px-5 py-3 text-xs text-gray-400" x-text="m.type"></td>
-                <td class="px-5 py-3 font-mono text-xs text-gray-400"
+                <td class="px-4 py-3 text-xs text-gray-400" x-text="m.type"></td>
+                <td class="px-4 py-3 font-mono text-xs text-gray-400 max-w-[180px] truncate"
                     x-text="m.direction==='inbound' ? m.from_jid : m.to_jid"></td>
-                <td class="px-5 py-3 text-xs text-gray-300 max-w-xs truncate" x-text="preview(m)"></td>
-                <td class="px-5 py-3 text-xs text-gray-500" x-text="fmtDate(m.sent_at)"></td>
+                <td class="px-4 py-3 text-xs text-gray-300 max-w-[220px] truncate" x-text="preview(m)"></td>
+                <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap" x-text="fmtDate(m.sent_at)"></td>
               </tr>
             </template>
           </tbody>
         </table>
 
         <!-- Pagination -->
-        <div class="px-5 py-3 border-t border-gray-800 flex items-center justify-between text-sm text-gray-400">
+        <div class="px-5 py-3 border-t border-[#1f2937] flex items-center justify-between">
           <button @click="prevPage()" :disabled="page===0"
-                  class="px-3 py-1 rounded-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-30 transition">← Anterior</button>
-          <span class="text-xs">Página <span x-text="page+1"></span> · <span x-text="messages.length"></span> resultados</span>
+                  class="btn btn-secondary text-xs px-3 py-1.5">← Anterior</button>
+          <span class="text-xs text-gray-500">
+            Página <span class="text-gray-300" x-text="page+1"></span>
+            <span x-show="messages.length > 0"> · <span x-text="messages.length"></span> resultados</span>
+          </span>
           <button @click="nextPage()" :disabled="messages.length < pageSize"
-                  class="px-3 py-1 rounded-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-30 transition">Próximo →</button>
+                  class="btn btn-secondary text-xs px-3 py-1.5">Próximo →</button>
         </div>
       </div>
+
     </div>
   </main>
 </div>
@@ -172,10 +208,7 @@ function page() {
     },
 
     async loadMessages() {
-      if (!this.filter.instanceID || !this.filter.chat) {
-        alert('Selecione uma instância e insira um JID de chat.');
-        return;
-      }
+      if (!this.filter.instanceID || !this.filter.chat) return;
       this.loading = true;
       this.searched = true;
       const q = new URLSearchParams({
@@ -205,15 +238,14 @@ function page() {
         read:      'bg-blue-500/10 text-blue-400 border border-blue-500/20',
         failed:    'bg-red-500/10 text-red-400 border border-red-500/20',
         scheduled: 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20',
-        cancelled: 'bg-gray-500/10 text-gray-400 border border-gray-500/20',
+        cancelled: 'bg-gray-500/10 text-gray-500 border border-gray-500/20',
         revoked:   'bg-orange-500/10 text-orange-400 border border-orange-500/20',
-        pending:   'bg-gray-500/10 text-gray-400 border border-gray-500/20',
+        pending:   'bg-gray-500/10 text-gray-500 border border-gray-500/20',
       };
-      return map[s] || 'bg-gray-500/10 text-gray-400 border border-gray-500/20';
+      return map[s] || 'bg-gray-500/10 text-gray-500 border border-gray-500/20';
     },
   };
 }
 </script>
 </body>
 </html>
-

@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #374151; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+  [x-cloak] { display: none !important; }
+}
+
+@layer components {
+  /* Navigation */
+  .nav-item {
+    display: flex; align-items: center; gap: .625rem;
+    padding: .4375rem .75rem; border-radius: .5rem;
+    font-size: .8125rem; font-weight: 500; color: #6b7280;
+    transition: all 150ms; text-decoration: none;
+  }
+  .nav-item:hover { color: #f9fafb; background: rgba(255,255,255,.06); }
+  .nav-item.active { color: #f9fafb; background: rgba(255,255,255,.08); }
+  .nav-item.active svg { color: #4ade80; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: .375rem; border-radius: .625rem; font-size: .8125rem;
+    font-weight: 500; padding: .5rem 1rem;
+    transition: all 150ms; cursor: pointer; border: none;
+  }
+  .btn:disabled { opacity: .45; pointer-events: none; }
+  .btn-primary { background: #16a34a; color: #fff; }
+  .btn-primary:hover { background: #15803d; }
+  .btn-secondary { background: #1f2937; color: #d1d5db; border: 1px solid #374151; }
+  .btn-secondary:hover { background: #263244; color: #f9fafb; }
+  .btn-danger { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
+  .btn-danger:hover { background: #7f1d1d; color: #fee2e2; }
+  .btn-ghost { background: transparent; color: #6b7280; }
+  .btn-ghost:hover { background: rgba(255,255,255,.06); color: #f9fafb; }
+
+  /* Form fields */
+  .field {
+    width: 100%; background: #0d1117; border: 1px solid #1f2937;
+    border-radius: .625rem; padding: .5625rem .875rem;
+    color: #f9fafb; font-size: .875rem;
+    transition: border-color 150ms, box-shadow 150ms; outline: none;
+  }
+  .field:focus { border-color: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.12); }
+  .field::placeholder { color: #4b5563; }
+  .field-mono { font-family: ui-monospace, monospace; font-size: .8125rem; }
+
+  /* Toggle switch */
+  .toggle {
+    position: relative; display: inline-flex; height: 1.25rem; width: 2.25rem;
+    cursor: pointer; align-items: center; border-radius: 9999px;
+    transition: background-color 200ms;
+  }
+  .toggle-off { background: #374151; }
+  .toggle-on  { background: #16a34a; }
+  .toggle-knob {
+    position: absolute; height: .875rem; width: .875rem;
+    border-radius: 9999px; background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,.4); transition: transform 200ms;
+  }
+  .toggle-knob-off { transform: translateX(.1875rem); }
+  .toggle-knob-on  { transform: translateX(1.1875rem); }
+
+  /* Drawer */
+  .drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 520px;
+    background: #111827; border-left: 1px solid #1f2937;
+    z-index: 60; display: flex; flex-direction: column;
+    transition: transform 300ms cubic-bezier(.4,0,.2,1);
+  }
+  .drawer-closed { transform: translateX(100%); }
+  .drawer-open   { transform: translateX(0); }
+
+  /* Instance card hover */
+  .inst-card { transition: border-color 200ms, box-shadow 200ms; }
+  .inst-card:hover { border-color: #374151; box-shadow: 0 4px 24px rgba(0,0,0,.3); }
+
+  /* Tabs */
+  .tab-active   { color: #f9fafb; border-bottom: 2px solid #4ade80; }
+  .tab-inactive { color: #6b7280; border-bottom: 2px solid transparent; }
+  .tab-inactive:hover { color: #d1d5db; border-bottom-color: #374151; }
+}

@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -23,18 +24,28 @@ func NewHandler(svc *auth.Service) *Handler {
 
 // Routes returns all auth routes under a single router.
 // Protected routes (api-keys, me) are gated by the provided authenticate middleware.
-func Routes(svc *auth.Service, authenticate func(http.Handler) http.Handler) http.Handler {
+// loginLimit, if provided, is applied to /login and /register to prevent brute-force.
+func Routes(svc *auth.Service, authenticate func(http.Handler) http.Handler, loginLimit ...func(http.Handler) http.Handler) http.Handler {
 	h := NewHandler(svc)
 	r := chi.NewRouter()
 
-	// Public — no token required.
-	r.Post("/register", h.Register)
-	r.Post("/login", h.Login)
+	// Resolve optional login rate-limit middleware.
+	var loginMW func(http.Handler) http.Handler
+	if len(loginLimit) > 0 && loginLimit[0] != nil {
+		loginMW = loginLimit[0]
+	} else {
+		loginMW = func(next http.Handler) http.Handler { return next }
+	}
+
+	// Public — no token required, but rate-limited per IP.
+	r.With(loginMW).Post("/register", h.Register)
+	r.With(loginMW).Post("/login", h.Login)
 
 	// Protected — require valid JWT or API key.
 	r.Group(func(r chi.Router) {
 		r.Use(authenticate)
 		r.Get("/me", h.Me)
+		r.Post("/logout", h.Logout)
 		r.Get("/api-keys", h.ListAPIKeys)
 		r.Post("/api-keys", h.CreateAPIKey)
 		r.Delete("/api-keys/{keyID}", h.RevokeAPIKey)
@@ -114,6 +125,29 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	apipkg.WriteJSON(w, r, http.StatusOK, claims)
 }
 
+// Logout handles POST /v1/auth/logout — blacklists the current JWT.
+func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+	raw := extractBearerToken(r)
+	if raw == "" || strings.HasPrefix(raw, "wapi_") {
+		// API keys don't have logout — they must be revoked via DELETE /api-keys/{id}.
+		apipkg.WriteJSON(w, r, http.StatusOK, map[string]string{"message": "ok"})
+		return
+	}
+	if err := h.svc.Logout(r.Context(), raw); err != nil {
+		apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeInternal, "logout failed"))
+		return
+	}
+	apipkg.WriteJSON(w, r, http.StatusOK, map[string]string{"message": "logged out"})
+}
+
+func extractBearerToken(r *http.Request) string {
+	h := r.Header.Get("Authorization")
+	if after, ok := strings.CutPrefix(h, "Bearer "); ok {
+		return strings.TrimSpace(after)
+	}
+	return ""
+}
+
 // CreateAPIKey handles POST /v1/auth/api-keys.
 func (h *Handler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.ClaimsFrom(r.Context())
@@ -132,6 +166,12 @@ func (h *Handler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 		scope := "instance:" + req.InstanceID
 		req.Scopes = append(req.Scopes, scope)
 		req.ExpiresAt = nil
+	}
+
+	// Default: explicit full access. This makes the permission visible in the key record
+	// instead of relying on "empty = all" implicit behavior.
+	if len(req.Scopes) == 0 {
+		req.Scopes = []string{"*"}
 	}
 
 	key, rawSecret, err := h.svc.CreateAPIKey(r.Context(), claims.WorkspaceID, claims.UserID, req.Name, req.ExpiresAt, req.Scopes)

@@ -12,11 +12,27 @@ import (
 // SecureHeaders adds standard security headers to every response.
 func SecureHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Prevent MIME-type sniffing.
 		w.Header().Set("X-Content-Type-Options", "nosniff")
+		// Prevent clickjacking.
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
+		// Enforce HTTPS for 1 year (HSTS). Browsers ignore this over plain HTTP,
+		// so it is safe to send even in development.
+		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		// Content-Security-Policy: assets served from self (embedded).
+		// 'unsafe-eval' required by Alpine.js; unpkg.com required by Swagger UI (/docs).
+		w.Header().Set("Content-Security-Policy",
+			"default-src 'self'; "+
+				"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; "+
+				"style-src 'self' 'unsafe-inline' https://unpkg.com; "+
+				"font-src 'self'; "+
+				"img-src 'self' data: blob:; "+
+				"connect-src 'self'; "+
+				"frame-ancestors 'none'",
+		)
 		next.ServeHTTP(w, r)
 	})
 }

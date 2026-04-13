@@ -19,13 +19,23 @@ help: ## Mostra os targets disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
 
+# ── Frontend ──────────────────────────────────────────────────────────────────
+.PHONY: build-css
+build-css: ## Compila Tailwind CSS (requer Node.js)
+	@npx tailwindcss@3 -c tailwind.config.js \
+		-i internal/ui/input.css \
+		-o internal/ui/web/admin/dist/main.css \
+		--minify
+	@echo "CSS compilado: internal/ui/web/admin/dist/main.css"
+
 # ── Desenvolvimento ───────────────────────────────────────────────────────────
 .PHONY: run
 run: ## Roda a API localmente (lê o .env)
 	@$(GO) run $(MAIN)
 
 .PHONY: build
-build: ## Compila o binário em ./bin/velix-api
+build: ## Compila o binário em ./bin/velix-api (roda build-css antes)
+	@$(MAKE) build-css
 	@mkdir -p $(BUILD_DIR)
 	@$(GO) build -ldflags="-s -w -X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY) $(MAIN)
 	@echo "Compilado: $(BUILD_DIR)/$(BINARY) ($(VERSION))"

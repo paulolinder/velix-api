@@ -48,8 +48,11 @@ func NewRouter(deps *Deps) http.Handler {
 	// Request timeout: 60s (SSE and WebSocket endpoints override via their own context)
 	r.Use(middleware.Timeout(60 * time.Second))
 
-	// Global rate limit: 200 req/s burst 500 (per process)
-	r.Use(middleware.RateLimiter(rate.Limit(200), 500))
+	// Per-process rate limit (in-memory token bucket): protects against local overload.
+	r.Use(middleware.RateLimiter(rate.Limit(500), 1000))
+	// Per-IP rate limit (Redis-backed, distributed): 120 req/s per IP across all replicas.
+	// Falls back to allow-all when Redis is unavailable.
+	r.Use(middleware.IPRateLimit(deps.Redis, 120))
 
 	// Count every request for metrics.
 	r.Use(func(next http.Handler) http.Handler {
@@ -64,10 +67,14 @@ func NewRouter(deps *Deps) http.Handler {
 		http.Redirect(w, r, "/admin", http.StatusFound)
 	})
 
+	// Favicon — redirect to the embedded SVG so browsers stop 404-ing.
+	r.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/admin/dist/favicon.svg", http.StatusMovedPermanently)
+	})
+
 	// ---- Infra endpoints (no auth required) ----
 	r.Get("/health", healthHandler)
 	r.Get("/ready", deps.Health.ReadyHandler)
-	r.Get("/metrics", metrics.M.Handler())
 
 	// ---- API docs (Swagger UI + raw spec) ----
 	r.Get("/docs", swaggerUIHandler)
@@ -89,8 +96,8 @@ func NewRouter(deps *Deps) http.Handler {
 		http.ServeFileFS(w, r, adminFS, file)
 	})
 
-	// ---- Chatwoot webhook (no auth — Chatwoot POSTs plain HTTP) ----
-	chatwootHandler := chatwootapi.NewHandler(deps.ChatwootService)
+	// ---- Chatwoot webhook (validated by shared secret when CHATWOOT_WEBHOOK_SECRET is set) ----
+	chatwootHandler := chatwootapi.NewHandler(deps.ChatwootService, deps.ChatwootWebhookSecret)
 	r.Post("/v1/chatwoot/webhook", chatwootHandler.Webhook)
 
 	// ---- WebSocket real-time events (auth via ?token=<jwt>) ----
@@ -102,13 +109,17 @@ func NewRouter(deps *Deps) http.Handler {
 	authMiddleware := middleware.Authenticate(deps.AuthService)
 
 	r.Route("/v1", func(r chi.Router) {
-		// Auth routes — public (register, login) + protected (me, api-keys) in one mount.
-		r.Mount("/auth", authapi.Routes(deps.AuthService, authMiddleware))
+		// Auth routes — public (register, login) rate-limited by IP + protected (me, api-keys).
+		loginLimit := middleware.LoginRateLimit(deps.Redis)
+		r.Mount("/auth", authapi.Routes(deps.AuthService, authMiddleware, loginLimit))
 
 		// Everything below requires a valid JWT or API Key.
 		r.Group(func(r chi.Router) {
 			r.Use(authMiddleware)
 			r.Use(middleware.WorkspaceRateLimit(deps.Redis))
+
+			// Metrics — protected to prevent operational info leakage.
+			r.Get("/metrics", metrics.M.Handler())
 
 			// Admin API — only admin and developer roles.
 			r.With(middleware.RequireRole("admin", "developer")).
@@ -122,7 +133,11 @@ func NewRouter(deps *Deps) http.Handler {
 				r.Get("/", instH.List)
 
 				r.Route("/{instanceID}", func(r chi.Router) {
-					// Core CRUD + lifecycle (ownership checked inside service).
+					// All instance routes require ownership — dual layer:
+					// middleware verifies workspace + scope, service verifies again internally.
+					r.Use(middleware.RequireInstanceOwner(deps.InstanceService))
+
+					// Core CRUD + lifecycle.
 					r.Get("/", instH.Get)
 					r.Delete("/", instH.Delete)
 					r.Post("/connect", instH.Connect)
@@ -133,15 +148,16 @@ func NewRouter(deps *Deps) http.Handler {
 					r.Post("/pair-code", instH.PairCode)
 					r.Mount("/settings", instanceapi.SettingsRoutes(deps.InstanceService))
 
-					// Sub-resources — ownership enforced by middleware.
-					r.Group(func(r chi.Router) {
-						r.Use(middleware.RequireInstanceOwner(deps.InstanceService))
-						r.Mount("/messages", messageapi.Routes(deps.MessageService))
-						r.Mount("/contacts", contactapi.Routes(deps.Engine))
-						r.Mount("/groups",   groupapi.Routes(deps.Engine))
-						r.Post("/presence", instanceapi.PresenceHandler(deps.InstanceService))
-						r.Patch("/profile", instanceapi.ProfileHandler(deps.InstanceService))
-					})
+					// Sub-resources.
+					r.Mount("/messages", messageapi.Routes(deps.MessageService))
+					r.Mount("/contacts", contactapi.Routes(deps.Engine))
+					r.Mount("/groups",   groupapi.Routes(deps.Engine))
+					r.Post("/presence", instanceapi.PresenceHandler(deps.InstanceService))
+					r.Patch("/profile", instanceapi.ProfileHandler(deps.InstanceService))
+
+					// Chatwoot history sync.
+					chatwootSync := chatwootapi.NewSyncHandler(deps.ChatwootService)
+					r.Post("/chatwoot/sync", chatwootSync.Sync)
 				})
 			})
 
@@ -177,6 +193,7 @@ func swaggerUIHandler(w http.ResponseWriter, _ *http.Request) {
   <meta charset="UTF-8">
   <title>Velix API – Documentação</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="/admin/dist/favicon.svg">
   <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
 </head>
 <body>

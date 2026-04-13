@@ -31,4 +31,7 @@ type Repository interface {
 	// GetByChatwootInboxID returns the instance whose Chatwoot inbox ID matches.
 	// Returns ErrNotFound if no enabled instance has that inbox ID.
 	GetByChatwootInboxID(ctx context.Context, inboxID int64) (*Instance, error)
+
+	// CountByWorkspace returns the number of instances for a workspace.
+	CountByWorkspace(ctx context.Context, workspaceID string) (int, error)
 }

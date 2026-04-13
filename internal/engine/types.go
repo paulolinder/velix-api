@@ -135,6 +135,7 @@ const (
 	EventInstanceLoggedOut   EventType = "instance.logged_out"
 	EventInstanceBanned      EventType = "instance.banned"
 	EventInstancePaired      EventType = "instance.paired"
+	EventHistorySync         EventType = "history.sync"
 )
 
 // Event is the generic envelope for all engine events.
@@ -224,6 +225,23 @@ type LocationInfo struct {
 type VCardInfo struct {
 	DisplayName string `json:"display_name"`
 	VCard       string `json:"vcard"`
+}
+
+// HistorySyncMessage represents a single message extracted from a WhatsApp history sync blob.
+type HistorySyncMessage struct {
+	ChatJID   string    `json:"chat_jid"`
+	SenderJID string    `json:"sender_jid"`
+	FromMe    bool      `json:"from_me"`
+	MessageID string    `json:"message_id"`
+	Text      string    `json:"text"`
+	Timestamp time.Time `json:"timestamp"`
+	PushName  string    `json:"push_name"`
+	Type      string    `json:"type"` // text | image | video | audio | document | location | contact | etc.
+}
+
+// HistorySyncPayload is the payload for EventHistorySync.
+type HistorySyncPayload struct {
+	Messages []HistorySyncMessage `json:"messages"`
 }
 
 // ReceiptPayload is the payload for EventReceiptDelivered / EventReceiptRead.

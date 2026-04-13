@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -15,6 +16,18 @@ import (
 	"velix/internal/logger"
 )
 
+// HistoryBufferMsg mirrors repo.HistoryBufferMsg for the domain layer.
+type HistoryBufferMsg struct {
+	MessageID string
+	ChatJID   string
+	SenderJID string
+	FromMe    bool
+	Text      string
+	MsgType   string
+	PushName  string
+	Timestamp time.Time
+}
+
 // MappingRepo persists WhatsApp ↔ Chatwoot ID mappings.
 type MappingRepo interface {
 	GetContactID(ctx context.Context, instanceID, jid string) (int64, error)
@@ -22,6 +35,9 @@ type MappingRepo interface {
 	GetConversationID(ctx context.Context, instanceID, chatJID string) (int64, error)
 	SaveConversationID(ctx context.Context, instanceID, chatJID string, convID int64) error
 	GetChatJIDByConversationID(ctx context.Context, instanceID string, convID int64) (string, error)
+	SaveHistoryMessages(ctx context.Context, instanceID string, msgs []HistoryBufferMsg) error
+	GetHistoryMessages(ctx context.Context, instanceID string) ([]HistoryBufferMsg, error)
+	DeleteHistoryMessages(ctx context.Context, instanceID string) error
 }
 
 // InstanceSettingsReader provides per-instance Chatwoot configuration.
@@ -37,9 +53,12 @@ type Service struct {
 	mappings MappingRepo
 	http     *http.Client
 	log      zerolog.Logger
+	eventCh  chan engine.Event // buffered channel for async event processing
 }
 
 // NewService creates the Chatwoot service and subscribes it to engine events.
+// Events are processed asynchronously via a buffered channel to avoid blocking
+// the engine's event dispatch loop when Chatwoot API is slow.
 func NewService(eng engine.Engine, instSvc InstanceSettingsReader, _ any, mappings MappingRepo) *Service {
 	s := &Service{
 		eng:      eng,
@@ -47,9 +66,175 @@ func NewService(eng engine.Engine, instSvc InstanceSettingsReader, _ any, mappin
 		mappings: mappings,
 		http:     &http.Client{Timeout: 30 * time.Second},
 		log:      logger.New("chatwoot-service"),
+		eventCh:  make(chan engine.Event, 500),
 	}
-	eng.Subscribe(s.handleEngineEvent)
+	eng.Subscribe(s.enqueueEvent)
+	// Start worker that processes events from the channel.
+	go s.eventWorker()
 	return s
+}
+
+// enqueueEvent puts events into the buffered channel without blocking the engine.
+func (s *Service) enqueueEvent(evt engine.Event) {
+	select {
+	case s.eventCh <- evt:
+	default:
+		s.log.Warn().Str("event", string(evt.Type)).Msg("Chatwoot event channel full — dropping event")
+	}
+}
+
+// eventWorker processes Chatwoot events sequentially from the channel.
+func (s *Service) eventWorker() {
+	for evt := range s.eventCh {
+		s.handleEngineEvent(evt)
+	}
+}
+
+// SyncResult holds the result of a history sync operation.
+type SyncResult struct {
+	ContactsCreated      int `json:"contacts_created"`
+	ConversationsCreated int `json:"conversations_created"`
+	MessagesSynced       int `json:"messages_synced"`
+	Skipped              int `json:"skipped"`
+	Errors               int `json:"errors"`
+}
+
+// SyncHistory imports known WhatsApp contacts into Chatwoot as contacts+conversations.
+// It runs synchronously and rate-limits Chatwoot API calls to avoid overload.
+func (s *Service) SyncHistory(ctx context.Context, instanceID string) (*SyncResult, error) {
+	cfg, err := s.instSvc.GetChatwootSettings(ctx, instanceID)
+	if err != nil {
+		return nil, fmt.Errorf("get chatwoot settings: %w", err)
+	}
+	if !cfg.ChatwootEnabled || cfg.ChatwootURL == "" || cfg.ChatwootToken == "" || cfg.ChatwootInboxID == 0 {
+		return nil, fmt.Errorf("chatwoot is not fully configured on this instance")
+	}
+
+	contacts, err := s.eng.GetContacts(ctx, instanceID)
+	if err != nil {
+		return nil, fmt.Errorf("get contacts: %w", err)
+	}
+
+	client := NewClient(cfg.ChatwootURL, cfg.ChatwootToken, cfg.ChatwootAccountID)
+	result := &SyncResult{}
+
+	// Rate limit: ~3 contacts/sec (each contact = up to 2 API calls).
+	ticker := time.NewTicker(350 * time.Millisecond)
+	defer ticker.Stop()
+
+	for jid, info := range contacts {
+		select {
+		case <-ctx.Done():
+			return result, ctx.Err()
+		case <-ticker.C:
+		}
+
+		phone := jidToPhone(jid)
+		name := info.PushName
+		if name == "" {
+			name = info.BusinessName
+		}
+		if name == "" {
+			name = phone
+		}
+
+		// Check if we already have a mapping (skip = already synced).
+		if existingID, _ := s.mappings.GetContactID(ctx, instanceID, jid); existingID != 0 {
+			result.Skipped++
+			continue
+		}
+
+		contactID, err := client.FindOrCreateContact(ctx, name, "+"+phone, cfg.ChatwootInboxID)
+		if err != nil {
+			s.log.Warn().Err(err).Str("jid", jid).Msg("Chatwoot sync: failed to create contact")
+			result.Errors++
+			continue
+		}
+		_ = s.mappings.SaveContactID(ctx, instanceID, jid, contactID)
+		result.ContactsCreated++
+
+		// Wait before conversation creation.
+		select {
+		case <-ctx.Done():
+			return result, ctx.Err()
+		case <-ticker.C:
+		}
+
+		_, err = client.FindOrCreateConversation(ctx, contactID, cfg.ChatwootInboxID, cfg.ChatwootConvPending)
+		if err != nil {
+			s.log.Warn().Err(err).Str("jid", jid).Msg("Chatwoot sync: failed to create conversation")
+			result.Errors++
+			continue
+		}
+		_ = s.mappings.SaveConversationID(ctx, instanceID, jid, contactID)
+		result.ConversationsCreated++
+	}
+
+	// Phase 2: replay buffered history messages into Chatwoot conversations.
+	histMsgs, err := s.mappings.GetHistoryMessages(ctx, instanceID)
+	if err != nil {
+		s.log.Warn().Err(err).Str("instance", instanceID).Msg("Chatwoot sync: failed to load history buffer")
+	} else if len(histMsgs) > 0 {
+		s.replayHistoryMessages(ctx, client, instanceID, cfg, histMsgs, result, ticker)
+	}
+
+	s.log.Info().
+		Str("instance", instanceID).
+		Int("contacts", result.ContactsCreated).
+		Int("conversations", result.ConversationsCreated).
+		Int("messages", result.MessagesSynced).
+		Int("skipped", result.Skipped).
+		Int("errors", result.Errors).
+		Msg("Chatwoot history sync completed")
+
+	return result, nil
+}
+
+// replayHistoryMessages posts buffered history messages into Chatwoot conversations.
+func (s *Service) replayHistoryMessages(ctx context.Context, client *Client, instanceID string, cfg *instance.Settings, msgs []HistoryBufferMsg, result *SyncResult, ticker *time.Ticker) {
+	for _, m := range msgs {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
+		phone := jidToPhone(m.ChatJID)
+		name := m.PushName
+		if name == "" {
+			name = phone
+		}
+
+		contactID, err := s.findOrCreateContact(ctx, client, instanceID, m.ChatJID, name, phone, cfg.ChatwootInboxID)
+		if err != nil {
+			result.Errors++
+			continue
+		}
+
+		convID, err := s.findOrCreateConversation(ctx, client, instanceID, m.ChatJID, contactID, cfg.ChatwootInboxID, cfg.ChatwootConvPending)
+		if err != nil {
+			result.Errors++
+			continue
+		}
+
+		// Build message content with sender prefix for context.
+		content := m.Text
+		if m.FromMe {
+			content = "*Eu:* " + content
+		} else if m.PushName != "" {
+			content = "*" + m.PushName + ":* " + content
+		}
+
+		if err := client.PostIncomingMessage(ctx, convID, content); err != nil {
+			s.log.Warn().Err(err).Str("msg_id", m.MessageID).Msg("Chatwoot sync: failed to post message")
+			result.Errors++
+			continue
+		}
+		result.MessagesSynced++
+	}
+
+	// Clean up buffer after successful replay.
+	_ = s.mappings.DeleteHistoryMessages(ctx, instanceID)
 }
 
 // --- Engine event handler ----------------------------------------------------
@@ -69,7 +254,38 @@ func (s *Service) handleEngineEvent(evt engine.Event) {
 				Str("from", payload.From).
 				Msg("Chatwoot: failed to sync inbound message")
 		}
+
+	case engine.EventHistorySync:
+		payload, ok := evt.Payload.(*engine.HistorySyncPayload)
+		if !ok || len(payload.Messages) == 0 {
+			return
+		}
+		s.bufferHistorySync(ctx, evt.InstanceID, payload)
 	}
+}
+
+// bufferHistorySync saves history sync messages into the database buffer for later replay.
+func (s *Service) bufferHistorySync(ctx context.Context, instanceID string, p *engine.HistorySyncPayload) {
+	msgs := make([]HistoryBufferMsg, len(p.Messages))
+	for i, m := range p.Messages {
+		msgs[i] = HistoryBufferMsg{
+			MessageID: m.MessageID,
+			ChatJID:   m.ChatJID,
+			SenderJID: m.SenderJID,
+			FromMe:    m.FromMe,
+			Text:      m.Text,
+			MsgType:   m.Type,
+			PushName:  m.PushName,
+			Timestamp: m.Timestamp,
+		}
+	}
+	if err := s.mappings.SaveHistoryMessages(ctx, instanceID, msgs); err != nil {
+		s.log.Warn().Err(err).Str("instance", instanceID).Int("count", len(msgs)).
+			Msg("Chatwoot: failed to buffer history sync messages")
+		return
+	}
+	s.log.Info().Str("instance", instanceID).Int("count", len(msgs)).
+		Msg("Chatwoot: history sync messages buffered")
 }
 
 func (s *Service) syncInbound(ctx context.Context, instanceID string, p *engine.MessagePayload) error {
@@ -89,7 +305,7 @@ func (s *Service) syncInbound(ctx context.Context, instanceID string, p *engine.
 		name = phone
 	}
 
-	contactID, err := s.findOrCreateContact(ctx, client, instanceID, p.From, name, phone)
+	contactID, err := s.findOrCreateContact(ctx, client, instanceID, p.From, name, phone, cfg.ChatwootInboxID)
 	if err != nil {
 		return fmt.Errorf("find/create contact: %w", err)
 	}
@@ -116,25 +332,30 @@ func (s *Service) syncInbound(ctx context.Context, instanceID string, p *engine.
 	return client.PostIncomingMessage(ctx, convID, content)
 }
 
-// forwardMediaToConversation downloads the media file and posts it to Chatwoot.
+// forwardMediaToConversation reads the media file and posts it to Chatwoot.
 func (s *Service) forwardMediaToConversation(ctx context.Context, client *Client, convID int64, p *engine.MessagePayload) error {
-	// Download from local server if DirectURL is set, otherwise fall back to text.
 	if p.Media.DirectURL == "" && p.Media.LocalPath == "" {
 		return client.PostIncomingMessage(ctx, convID, buildMessageContent(p))
 	}
 
 	var fileData []byte
-	if p.Media.DirectURL != "" {
+
+	// Prefer reading from the local filesystem — the engine already saved the file there.
+	// DirectURL is a relative path (/v1/media/UUID) and cannot be used for HTTP requests.
+	if p.Media.LocalPath != "" {
+		fileData, _ = os.ReadFile(p.Media.LocalPath)
+	}
+
+	// Fallback: try an absolute HTTP URL if LocalPath is absent or unreadable.
+	if len(fileData) == 0 && p.Media.DirectURL != "" {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.Media.DirectURL, nil)
-		if err != nil {
-			return client.PostIncomingMessage(ctx, convID, buildMessageContent(p))
+		if err == nil {
+			resp, err := s.http.Do(req)
+			if err == nil && resp.StatusCode == http.StatusOK {
+				defer resp.Body.Close()
+				fileData, _ = io.ReadAll(resp.Body)
+			}
 		}
-		resp, err := s.http.Do(req)
-		if err != nil || resp.StatusCode != http.StatusOK {
-			return client.PostIncomingMessage(ctx, convID, buildMessageContent(p))
-		}
-		defer resp.Body.Close()
-		fileData, _ = io.ReadAll(resp.Body)
 	}
 
 	if len(fileData) == 0 {
@@ -144,11 +365,11 @@ func (s *Service) forwardMediaToConversation(ctx context.Context, client *Client
 	return client.PostIncomingMedia(ctx, convID, p.Media.Caption, p.Media.FileName, p.Media.MimeType, fileData)
 }
 
-func (s *Service) findOrCreateContact(ctx context.Context, client *Client, instanceID, jid, name, phone string) (int64, error) {
+func (s *Service) findOrCreateContact(ctx context.Context, client *Client, instanceID, jid, name, phone string, inboxID int64) (int64, error) {
 	if id, _ := s.mappings.GetContactID(ctx, instanceID, jid); id != 0 {
 		return id, nil
 	}
-	id, err := client.FindOrCreateContact(ctx, name, "+"+phone)
+	id, err := client.FindOrCreateContact(ctx, name, "+"+phone, inboxID)
 	if err != nil {
 		return 0, err
 	}
@@ -174,6 +395,7 @@ func (s *Service) findOrCreateConversation(ctx context.Context, client *Client, 
 type ChatwootWebhookPayload struct {
 	Event       string `json:"event"`
 	MessageType any    `json:"message_type"` // string or int depending on CW version
+	Private     bool   `json:"private"`      // true for internal agent notes — must not be forwarded
 	Content     string `json:"content"`
 	Conversation struct {
 		ID      int64 `json:"id"`
@@ -195,6 +417,10 @@ func (s *Service) HandleWebhook(ctx context.Context, p *ChatwootWebhookPayload) 
 		return nil
 	}
 	if !isOutgoingMessage(p.MessageType) {
+		return nil
+	}
+	// Skip internal agent notes — they must not be forwarded to WhatsApp.
+	if p.Private {
 		return nil
 	}
 	// Ignore bot messages to prevent loops.

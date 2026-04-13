@@ -2,8 +2,10 @@ package waengine
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -143,6 +145,9 @@ func (e *Engine) handleWAEvent(instanceID string, mi *managedInstance, evt any) 
 			Payload:    payload,
 			Timestamp:  now,
 		})
+
+	case *waevents.HistorySync:
+		go e.handleHistorySync(instanceID, v)
 
 	case *waevents.Receipt:
 		payload := mapReceipt(v, e.ctx, mi.client.Store)
@@ -429,6 +434,129 @@ func extFromMIME(mimeType string) string {
 	default:
 		return ".bin"
 	}
+}
+
+// handleHistorySync extracts messages from a WhatsApp history sync blob and
+// dispatches them as an EventHistorySync event. Only text messages from
+// individual chats (not groups) are included — media would require downloading
+// from WhatsApp CDN which is unreliable for old messages.
+func (e *Engine) handleHistorySync(instanceID string, v *waevents.HistorySync) {
+	defer func() {
+		if r := recover(); r != nil {
+			e.log.Error().Str("instance", instanceID).Interface("panic", r).Msg("Panic in handleHistorySync — recovered")
+		}
+	}()
+
+	data := v.Data
+	if data == nil {
+		return
+	}
+
+	var msgs []engine.HistorySyncMessage
+
+	for _, conv := range data.GetConversations() {
+		chatJID := conv.GetID()
+		if chatJID == "" {
+			continue
+		}
+		// Skip groups and broadcasts — only sync individual chats.
+		if strings.Contains(chatJID, "@g.us") || strings.Contains(chatJID, "@broadcast") {
+			continue
+		}
+
+		for _, hsm := range conv.GetMessages() {
+			webMsg := hsm.GetMessage()
+			if webMsg == nil {
+				continue
+			}
+			key := webMsg.GetKey()
+			if key == nil {
+				continue
+			}
+
+			ts := time.Unix(int64(webMsg.GetMessageTimestamp()), 0)
+			msg := webMsg.GetMessage()
+			if msg == nil {
+				continue
+			}
+
+			// Extract text content.
+			text := msg.GetConversation()
+			msgType := "text"
+			if text == "" && msg.GetExtendedTextMessage() != nil {
+				text = msg.GetExtendedTextMessage().GetText()
+			}
+			if text == "" {
+				// Tag media types but don't include content (can't download old media reliably).
+				switch {
+				case msg.GetImageMessage() != nil:
+					msgType = "image"
+					text = msg.GetImageMessage().GetCaption()
+					if text == "" {
+						text = "[imagem]"
+					}
+				case msg.GetVideoMessage() != nil:
+					msgType = "video"
+					text = "[vídeo]"
+				case msg.GetAudioMessage() != nil:
+					msgType = "audio"
+					text = "[áudio]"
+				case msg.GetDocumentMessage() != nil:
+					msgType = "document"
+					text = "[documento]"
+				case msg.GetStickerMessage() != nil:
+					msgType = "sticker"
+					text = "[sticker]"
+				case msg.GetLocationMessage() != nil:
+					msgType = "location"
+					lm := msg.GetLocationMessage()
+					text = fmt.Sprintf("[localização: %.4f, %.4f]", lm.GetDegreesLatitude(), lm.GetDegreesLongitude())
+				case msg.GetContactMessage() != nil:
+					msgType = "contact"
+					text = "[contato: " + msg.GetContactMessage().GetDisplayName() + "]"
+				default:
+					continue // Skip unsupported types.
+				}
+			}
+
+			senderJID := key.GetRemoteJID()
+			if key.GetFromMe() {
+				senderJID = "me"
+			}
+
+			msgs = append(msgs, engine.HistorySyncMessage{
+				ChatJID:   chatJID,
+				SenderJID: senderJID,
+				FromMe:    key.GetFromMe(),
+				MessageID: key.GetID(),
+				Text:      text,
+				Timestamp: ts,
+				PushName:  webMsg.GetPushName(),
+				Type:      msgType,
+			})
+		}
+	}
+
+	if len(msgs) == 0 {
+		return
+	}
+
+	// Sort by timestamp ascending so Chatwoot gets messages in order.
+	sort.Slice(msgs, func(i, j int) bool {
+		return msgs[i].Timestamp.Before(msgs[j].Timestamp)
+	})
+
+	e.log.Info().
+		Str("instance", instanceID).
+		Int("messages", len(msgs)).
+		Msg("History sync received")
+
+	e.dispatch(engine.Event{
+		Type:       engine.EventHistorySync,
+		InstanceID: instanceID,
+		Payload:    &engine.HistorySyncPayload{Messages: msgs},
+		Timestamp:  time.Now(),
+	})
 }
 
 func mapReceipt(v *waevents.Receipt, ctx context.Context, store lidResolver) *engine.ReceiptPayload {

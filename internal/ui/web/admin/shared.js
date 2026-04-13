@@ -44,6 +44,13 @@ function getUserEmail() {
   return localStorage.getItem('wa_email') || '';
 }
 
+// Returns the uppercased first letter of the stored email, or '?' — safe to use
+// directly in x-text without complex method chains (Alpine CSP evaluator friendly).
+function getEmailInitial() {
+  const e = getUserEmail();
+  return e ? e.charAt(0).toUpperCase() : '?';
+}
+
 // Format date helper — shows date + time.
 function fmtDate(s) {
   if (!s) return '\u2014';

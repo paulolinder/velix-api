@@ -10,6 +10,8 @@ import (
 	"unicode"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 	"golang.org/x/crypto/bcrypt"
 
@@ -25,19 +27,24 @@ const (
 // Service handles workspace registration, authentication, and API key management.
 type Service struct {
 	repo      Repository
+	rdb       *redis.Client // for JWT blacklist (logout)
 	jwtSecret []byte
 	jwtExpiry time.Duration
 	log       zerolog.Logger
 }
 
 // NewService creates a new auth service.
-func NewService(repo Repository, jwtSecret string, jwtExpiry time.Duration) *Service {
-	return &Service{
+func NewService(repo Repository, jwtSecret string, jwtExpiry time.Duration, rdb ...*redis.Client) *Service {
+	s := &Service{
 		repo:      repo,
 		jwtSecret: []byte(jwtSecret),
 		jwtExpiry: jwtExpiry,
 		log:       logger.New("auth-service"),
 	}
+	if len(rdb) > 0 {
+		s.rdb = rdb[0]
+	}
+	return s
 }
 
 // ---------------------------------------------------------------------------
@@ -84,10 +91,17 @@ func (s *Service) Register(ctx context.Context, workspaceName, slug, email, pass
 // Login
 // ---------------------------------------------------------------------------
 
+// dummyHash is a pre-computed bcrypt hash used to equalize response time when
+// the queried email does not exist, preventing user enumeration via timing.
+const dummyHash = "$2a$12$X4kv7j5ZcG39WgogSl16xuB4VUg8LmJw3RWqXfGpF0PTHsRj7OWsS"
+
 // Login validates credentials and returns a signed JWT.
 func (s *Service) Login(ctx context.Context, email, password string) (*User, string, error) {
 	user, err := s.repo.GetUserByEmail(ctx, email)
 	if err != nil {
+		// Run a dummy bcrypt comparison so the response time is the same whether
+		// the email exists or not — prevents user enumeration via timing differences.
+		_ = bcrypt.CompareHashAndPassword([]byte(dummyHash), []byte(password))
 		return nil, "", ErrInvalidCredentials
 	}
 
@@ -118,7 +132,9 @@ func (s *Service) ParseToken(tokenStr string) (*Claims, error) {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
 		return s.jwtSecret, nil
-	}, jwt.WithValidMethods([]string{"HS256"}))
+	}, jwt.WithValidMethods([]string{"HS256"}),
+		jwt.WithIssuer("velix-api"),
+	)
 
 	if err != nil || !t.Valid {
 		return nil, ErrInvalidToken
@@ -139,10 +155,12 @@ func (s *Service) ParseToken(tokenStr string) (*Claims, error) {
 
 func (s *Service) signToken(user *User) (string, error) {
 	claims := jwt.MapClaims{
+		"jti":   uuid.NewString(),
 		"uid":   user.ID,
 		"wid":   user.WorkspaceID,
 		"email": user.Email,
 		"role":  string(user.Role),
+		"iss":   "velix-api",
 		"exp":   time.Now().Add(s.jwtExpiry).Unix(),
 		"iat":   time.Now().Unix(),
 	}
@@ -152,6 +170,65 @@ func (s *Service) signToken(user *User) (string, error) {
 		return "", fmt.Errorf("sign JWT: %w", err)
 	}
 	return signed, nil
+}
+
+// Logout blacklists a JWT so it cannot be used again.
+// The token is added to Redis with TTL matching its remaining expiry.
+func (s *Service) Logout(ctx context.Context, tokenStr string) error {
+	claims, err := s.ParseToken(tokenStr)
+	if err != nil {
+		return err
+	}
+
+	// Parse raw claims to get JTI and EXP for blacklist TTL.
+	t, _ := jwt.Parse(tokenStr, func(t *jwt.Token) (any, error) {
+		return s.jwtSecret, nil
+	})
+	if t == nil {
+		return ErrInvalidToken
+	}
+	mc, _ := t.Claims.(jwt.MapClaims)
+	jti := stringClaim(mc, "jti")
+	if jti == "" {
+		// Tokens without JTI (issued before this change) can't be individually blacklisted.
+		// Use the user ID as fallback — invalidates ALL tokens for this user.
+		jti = "user:" + claims.UserID
+	}
+
+	if s.rdb == nil {
+		return nil // no Redis = no blacklist (graceful)
+	}
+
+	// TTL = time until token expires.
+	exp, _ := mc.GetExpirationTime()
+	ttl := time.Until(exp.Time)
+	if ttl <= 0 {
+		return nil // already expired
+	}
+
+	return s.rdb.Set(ctx, "jwt:blacklist:"+jti, "1", ttl).Err()
+}
+
+// IsBlacklisted checks if a JWT's JTI is in the Redis blacklist.
+func (s *Service) IsBlacklisted(ctx context.Context, tokenStr string) bool {
+	if s.rdb == nil {
+		return false
+	}
+
+	t, err := jwt.Parse(tokenStr, func(t *jwt.Token) (any, error) {
+		return s.jwtSecret, nil
+	})
+	if err != nil || t == nil {
+		return false
+	}
+	mc, _ := t.Claims.(jwt.MapClaims)
+	jti := stringClaim(mc, "jti")
+	if jti == "" {
+		return false
+	}
+
+	val, err := s.rdb.Exists(ctx, "jwt:blacklist:"+jti).Result()
+	return err == nil && val > 0
 }
 
 // ---------------------------------------------------------------------------

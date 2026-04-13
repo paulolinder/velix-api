@@ -24,9 +24,24 @@ cd "$INSTALL_DIR"
 CURRENT_VERSION=$(grep "^VELIX_VERSION=" .env 2>/dev/null | cut -d= -f2 || echo "desconhecida")
 info "Versão atual: ${CURRENT_VERSION} → Nova versão: ${NEW_VERSION}"
 
-# ── Backup do .env ────────────────────────────────────────────────────────────
+# ── Backup antes de atualizar ─────────────────────────────────────────────────
 cp .env .env.backup
 info "Backup do .env salvo em .env.backup"
+
+# Database backup (if backup script exists).
+if [ -x "${INSTALL_DIR}/scripts/backup.sh" ]; then
+    info "Executando backup do banco de dados..."
+    "${INSTALL_DIR}/scripts/backup.sh" || warn "Backup falhou — continuando update"
+fi
+
+# Backup WhatsApp sessions (SQLite files).
+if [ -d "${INSTALL_DIR}/data/instances" ]; then
+    SESSIONS_BACKUP="${INSTALL_DIR}/backups/sessions_pre_update_$(date +%Y%m%d_%H%M%S).tar.gz"
+    mkdir -p "${INSTALL_DIR}/backups"
+    tar czf "$SESSIONS_BACKUP" -C "${INSTALL_DIR}" data/instances/ 2>/dev/null && \
+        info "Backup das sessões WhatsApp: $SESSIONS_BACKUP" || \
+        warn "Backup das sessões falhou — continuando"
+fi
 
 # ── Atualiza versão no .env ───────────────────────────────────────────────────
 if grep -q "^VELIX_VERSION=" .env; then

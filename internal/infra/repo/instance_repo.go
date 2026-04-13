@@ -189,6 +189,14 @@ func (r *InstanceRepo) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+// CountByWorkspace returns the number of instances for a workspace.
+func (r *InstanceRepo) CountByWorkspace(ctx context.Context, workspaceID string) (int, error) {
+	const q = `SELECT COUNT(*) FROM instances WHERE workspace_id=$1`
+	var count int
+	err := r.db.QueryRow(ctx, q, workspaceID).Scan(&count)
+	return count, err
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

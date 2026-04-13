@@ -66,6 +66,7 @@ type SettingsResponse struct {
 	IgnoreGroups       bool     `json:"ignore_groups"`
 	SyncFullHistory    bool     `json:"sync_full_history"`
 	WebhookURL         string   `json:"webhook_url"`
+	WebhookSecret      string   `json:"webhook_secret,omitempty"` // HMAC secret (shown when set, never auto-generated)
 	WebhookEvents      []string `json:"webhook_events"`
 	HumanPauseDuration int      `json:"human_pause_duration"`
 	// Chatwoot
@@ -88,6 +89,7 @@ type UpdateSettingsRequest struct {
 	IgnoreGroups       *bool     `json:"ignore_groups,omitempty"`
 	SyncFullHistory    *bool     `json:"sync_full_history,omitempty"`
 	WebhookURL         *string   `json:"webhook_url,omitempty"`
+	WebhookSecret      *string   `json:"webhook_secret,omitempty"`
 	WebhookEvents      *[]string `json:"webhook_events,omitempty"`
 	HumanPauseDuration *int      `json:"human_pause_duration,omitempty"`
 	// Chatwoot
@@ -113,6 +115,7 @@ func settingsFromDomain(s *instance.Settings) *SettingsResponse {
 		IgnoreGroups:       s.IgnoreGroups,
 		SyncFullHistory:    s.SyncFullHistory,
 		WebhookURL:         s.WebhookURL,
+		WebhookSecret:      s.WebhookSecret,
 		WebhookEvents:      events,
 		HumanPauseDuration: s.HumanPauseDuration,
 		ChatwootEnabled:    s.ChatwootEnabled,

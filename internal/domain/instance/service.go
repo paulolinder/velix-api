@@ -12,17 +12,24 @@ import (
 
 // Service orchestrates instance lifecycle: persistence + engine management.
 type Service struct {
-	repo   Repository
-	engine engine.Engine
-	log    zerolog.Logger
+	repo         Repository
+	engine       engine.Engine
+	maxInstances int // per-workspace limit (0 = unlimited, set by license)
+	log          zerolog.Logger
 }
 
 // NewService creates a new instance service.
-func NewService(repo Repository, eng engine.Engine) *Service {
+// maxInstances sets the per-workspace limit (0 = unlimited).
+func NewService(repo Repository, eng engine.Engine, maxInstances ...int) *Service {
+	max := 200
+	if len(maxInstances) > 0 && maxInstances[0] > 0 {
+		max = maxInstances[0]
+	}
 	s := &Service{
-		repo:   repo,
-		engine: eng,
-		log:    logger.New("instance-service"),
+		repo:         repo,
+		engine:       eng,
+		maxInstances: max,
+		log:          logger.New("instance-service"),
 	}
 	// Bridge engine events → DB updates.
 	eng.Subscribe(s.handleEngineEvent)
@@ -30,7 +37,16 @@ func NewService(repo Repository, eng engine.Engine) *Service {
 }
 
 // Create persists a new instance and registers it in the engine.
+// Checks per-workspace instance count against the engine's global limit.
 func (s *Service) Create(ctx context.Context, workspaceID, name, proxyURL string) (*Instance, error) {
+	// Per-workspace limit check (prevents one workspace from consuming all slots).
+	count, err := s.repo.CountByWorkspace(ctx, workspaceID)
+	if err != nil {
+		s.log.Warn().Err(err).Msg("Failed to count workspace instances — proceeding")
+	} else if count >= s.maxInstancesPerWorkspace() {
+		return nil, fmt.Errorf("workspace instance limit (%d) reached", s.maxInstancesPerWorkspace())
+	}
+
 	inst := &Instance{
 		WorkspaceID: workspaceID,
 		Name:        name,
@@ -234,6 +250,7 @@ func (s *Service) handleEngineEvent(evt engine.Event) {
 		if err := s.repo.UpdateStatus(ctx, evt.InstanceID, engine.StatusDisconnected); err != nil {
 			s.log.Error().Err(err).Str("id", evt.InstanceID).Msg("Failed to update status to disconnected")
 		}
+		s.log.Warn().Str("id", evt.InstanceID).Msg("Instance disconnected — webhook will be fired if configured")
 
 	case engine.EventInstanceLoggedOut:
 		if err := s.repo.UpdateStatus(ctx, evt.InstanceID, engine.StatusLoggedOut); err != nil {
@@ -304,14 +321,14 @@ func (s *Service) GetByChatwootInboxID(ctx context.Context, inboxID int64) (*Ins
 	return s.repo.GetByChatwootInboxID(ctx, inboxID)
 }
 
-// GetInstanceWebhookSettings returns the per-instance webhook URL and event filter.
-// Used by webhook.Service to deliver events to instance-specific URLs.
-func (s *Service) GetInstanceWebhookSettings(ctx context.Context, instanceID string) (string, []string, error) {
+// GetInstanceWebhookSettings returns the per-instance webhook URL, HMAC secret, and event filter.
+// Used by webhook.Service to deliver and sign events to instance-specific URLs.
+func (s *Service) GetInstanceWebhookSettings(ctx context.Context, instanceID string) (url, secret string, events []string, err error) {
 	inst, err := s.repo.GetByID(ctx, instanceID)
 	if err != nil {
-		return "", nil, err
+		return "", "", nil, err
 	}
-	return inst.Settings.WebhookURL, inst.Settings.WebhookEvents, nil
+	return inst.Settings.WebhookURL, inst.Settings.WebhookSecret, inst.Settings.WebhookEvents, nil
 }
 
 // InstanceBelongsToWorkspace checks ownership without returning the full entity.
@@ -346,6 +363,14 @@ func (s *Service) GetProfilePicture(ctx context.Context, workspaceID, instanceID
 		return "", err
 	}
 	return s.engine.GetProfilePicture(ctx, instanceID, jid)
+}
+
+// maxInstancesPerWorkspace returns the per-workspace limit set by the license.
+func (s *Service) maxInstancesPerWorkspace() int {
+	if s.maxInstances <= 0 {
+		return 999999 // unlimited
+	}
+	return s.maxInstances
 }
 
 // ErrNotFound is returned when an instance does not exist or does not belong to the workspace.

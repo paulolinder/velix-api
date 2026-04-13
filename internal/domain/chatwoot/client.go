@@ -35,11 +35,11 @@ func NewClient(chatwootURL, token string, accountID int64) *Client {
 
 // FindOrCreateContact returns the Chatwoot contact ID for the given phone number,
 // creating the contact if it does not exist.
-func (c *Client) FindOrCreateContact(ctx context.Context, name, phone string) (int64, error) {
+func (c *Client) FindOrCreateContact(ctx context.Context, name, phone string, inboxID int64) (int64, error) {
 	if id, err := c.searchContact(ctx, phone); err == nil {
 		return id, nil
 	}
-	return c.createContact(ctx, name, phone)
+	return c.createContact(ctx, name, phone, inboxID)
 }
 
 func (c *Client) searchContact(ctx context.Context, phone string) (int64, error) {
@@ -63,11 +63,15 @@ func (c *Client) searchContact(ctx context.Context, phone string) (int64, error)
 	return resp.Payload[0].ID, nil
 }
 
-func (c *Client) createContact(ctx context.Context, name, phone string) (int64, error) {
-	data, err := c.do(ctx, http.MethodPost, c.base+"/contacts", map[string]any{
+func (c *Client) createContact(ctx context.Context, name, phone string, inboxID int64) (int64, error) {
+	body := map[string]any{
 		"name":         name,
 		"phone_number": phone,
-	})
+	}
+	if inboxID != 0 {
+		body["inbox_id"] = inboxID
+	}
+	data, err := c.do(ctx, http.MethodPost, c.base+"/contacts", body)
 	if err != nil {
 		return 0, err
 	}
@@ -130,12 +134,15 @@ func (c *Client) findConversation(ctx context.Context, contactID, inboxID int64)
 }
 
 func (c *Client) createConversation(ctx context.Context, contactID, inboxID int64, pending bool) (int64, error) {
-	body := map[string]any{"inbox_id": inboxID}
+	body := map[string]any{
+		"contact_id": contactID,
+		"inbox_id":   inboxID,
+	}
 	if pending {
 		body["status"] = "pending"
 	}
 	data, err := c.do(ctx, http.MethodPost,
-		fmt.Sprintf("%s/contacts/%d/conversations", c.base, contactID),
+		c.base+"/conversations",
 		body)
 	if err != nil {
 		return 0, err

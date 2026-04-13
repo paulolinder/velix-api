@@ -292,16 +292,20 @@ func buildMediaMessage(p engine.MediaPayload, u whatsmeow.UploadResponse) (*waPr
 		}, nil
 
 	case engine.MediaTypeAudio:
+		// Always send audio as PTT (voice note) so it plays inline on WhatsApp.
+		// Force MIME to "audio/ogg; codecs=opus" — WhatsApp only renders the
+		// play button for this exact type; other MIME types show a silent file.
+		audioMIME := "audio/ogg; codecs=opus"
 		return &waProto.Message{
 			AudioMessage: &waProto.AudioMessage{
-				Mimetype:      proto.String(p.MimeType),
+				Mimetype:      proto.String(audioMIME),
 				URL:           proto.String(u.URL),
 				DirectPath:    proto.String(u.DirectPath),
 				MediaKey:      u.MediaKey,
 				FileEncSHA256: u.FileEncSHA256,
 				FileSHA256:    u.FileSHA256,
 				FileLength:    proto.Uint64(size),
-				PTT:           proto.Bool(p.MimeType == "audio/ogg; codecs=opus"),
+				PTT:           proto.Bool(true),
 			},
 		}, nil
 

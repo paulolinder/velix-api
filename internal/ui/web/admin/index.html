@@ -76,21 +76,13 @@
           <div>
             <label class="block text-xs font-medium text-gray-400 mb-1.5">Senha</label>
             <input x-model="regPassword" type="password" required autocomplete="new-password"
-                   class="field" placeholder="Ex: Senha123"
-                   @input="checkPassword()">
-            <!-- Requisitos de senha em tempo real -->
-            <div class="mt-2 space-y-1">
+                   class="field" placeholder="••••••••"
+                   @input="pwLen = regPassword.length >= 8">
+            <!-- Requisito de senha em tempo real -->
+            <div class="mt-2">
               <div class="flex items-center gap-1.5 text-xs" :class="pwLen ? 'text-green-400' : 'text-gray-600'">
                 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" :d="pwLen ? 'M5 13l4 4L19 7' : 'M6 18L18 6M6 6l12 12'"/></svg>
                 Mínimo 8 caracteres
-              </div>
-              <div class="flex items-center gap-1.5 text-xs" :class="pwUpper ? 'text-green-400' : 'text-gray-600'">
-                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" :d="pwUpper ? 'M5 13l4 4L19 7' : 'M6 18L18 6M6 6l12 12'"/></svg>
-                Uma letra maiúscula
-              </div>
-              <div class="flex items-center gap-1.5 text-xs" :class="pwDigit ? 'text-green-400' : 'text-gray-600'">
-                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" :d="pwDigit ? 'M5 13l4 4L19 7' : 'M6 18L18 6M6 6l12 12'"/></svg>
-                Um número
               </div>
             </div>
           </div>
@@ -99,7 +91,7 @@
             <svg class="w-3.5 h-3.5 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <span x-text="error"></span>
           </div>
-          <button type="submit" :disabled="loading || !pwLen || !pwUpper || !pwDigit"
+          <button type="submit" :disabled="loading || !pwLen"
                   class="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm">
             <svg x-show="loading" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -121,20 +113,13 @@
       loginEmail: '', loginPassword: '',
       regName: '', regEmail: '', regPassword: '',
       // Estado de senha em tempo real
-      pwLen: false, pwUpper: false, pwDigit: false,
+      pwLen: false,
       loading: false, error: '',
 
       init() {
         if (localStorage.getItem('wa_token')) {
           window.location.href = '/admin/dashboard.html';
         }
-      },
-
-      checkPassword() {
-        const p = this.regPassword;
-        this.pwLen   = p.length >= 8;
-        this.pwUpper = /[A-Z]/.test(p);
-        this.pwDigit = /[0-9]/.test(p);
       },
 
       makeSlug(name) {

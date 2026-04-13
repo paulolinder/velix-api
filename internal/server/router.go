@@ -188,13 +188,22 @@ func swaggerUIHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`<!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Velix API – Documentação</title>
+  <title>Velix API — Documentação</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/svg+xml" href="/admin/dist/favicon.svg">
   <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+  <style>
+    body { margin: 0; background: #0d1117; }
+    .swagger-ui .topbar { background: #161b22; border-bottom: 1px solid #1f2937; padding: 8px 0; }
+    .swagger-ui .topbar-wrapper { display: flex; align-items: center; gap: 12px; padding: 0 20px; }
+    .swagger-ui .topbar-wrapper .link { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .swagger-ui .topbar-wrapper img { height: 32px; width: 32px; border-radius: 8px; }
+    .swagger-ui .topbar-wrapper span { color: #fff; font-weight: 700; font-size: 16px; font-family: -apple-system, sans-serif; }
+    .swagger-ui .topbar-wrapper input[type=search], .swagger-ui .topbar-wrapper .download-url-wrapper { display: none; }
+  </style>
 </head>
 <body>
 <div id="swagger-ui"></div>
@@ -207,6 +216,28 @@ func swaggerUIHandler(w http.ResponseWriter, _ *http.Request) {
     layout: "BaseLayout",
     deepLinking: true,
     tryItOutEnabled: true,
+    persistAuthorization: true,
+    displayRequestDuration: true,
+    plugins: [
+      function(system) {
+        return {
+          wrapComponents: {
+            Topbar: function() {
+              return function() {
+                return system.React.createElement('div', { className: 'topbar' },
+                  system.React.createElement('div', { className: 'topbar-wrapper' },
+                    system.React.createElement('a', { className: 'link', href: '/admin' },
+                      system.React.createElement('img', { src: '/admin/dist/velix-logo.svg', alt: 'Velix' }),
+                      system.React.createElement('span', null, 'Velix API')
+                    )
+                  )
+                );
+              };
+            }
+          }
+        };
+      }
+    ]
   });
 </script>
 </body>

@@ -26,4 +26,5 @@ type Deps struct {
 	ChatwootWebhookSecret   string            // optional shared secret for webhook validation
 	License                 *license.License     // validated license (nil = free tier)
 	Trial                   *license.TrialInfo   // trial state (nil only if init failed)
+	RegistrationEnabled     bool                 // mirrors cfg.Auth.RegistrationEnabled
 }

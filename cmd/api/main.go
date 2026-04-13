@@ -190,6 +190,7 @@ func main() {
 		ChatwootWebhookSecret: cfg.Integrations.ChatwootWebhookSecret,
 		License:               lic,
 		Trial:                 trial,
+		RegistrationEnabled:   cfg.Auth.RegistrationEnabled,
 	}
 	router := server.NewRouter(deps)
 	srv := server.New(cfg.HTTP, router)

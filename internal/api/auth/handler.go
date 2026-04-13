@@ -14,19 +14,20 @@ import (
 
 // Handler holds the auth service dependency.
 type Handler struct {
-	svc *auth.Service
+	svc                 *auth.Service
+	registrationEnabled bool
 }
 
 // NewHandler creates a new auth HTTP handler.
-func NewHandler(svc *auth.Service) *Handler {
-	return &Handler{svc: svc}
+func NewHandler(svc *auth.Service, registrationEnabled bool) *Handler {
+	return &Handler{svc: svc, registrationEnabled: registrationEnabled}
 }
 
 // Routes returns all auth routes under a single router.
 // Protected routes (api-keys, me) are gated by the provided authenticate middleware.
 // loginLimit, if provided, is applied to /login and /register to prevent brute-force.
-func Routes(svc *auth.Service, authenticate func(http.Handler) http.Handler, loginLimit ...func(http.Handler) http.Handler) http.Handler {
-	h := NewHandler(svc)
+func Routes(svc *auth.Service, registrationEnabled bool, authenticate func(http.Handler) http.Handler, loginLimit ...func(http.Handler) http.Handler) http.Handler {
+	h := NewHandler(svc, registrationEnabled)
 	r := chi.NewRouter()
 
 	// Resolve optional login rate-limit middleware.
@@ -60,6 +61,11 @@ func Routes(svc *auth.Service, authenticate func(http.Handler) http.Handler, log
 
 // Register handles POST /v1/auth/register.
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
+	if !h.registrationEnabled {
+		apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeForbidden, "Registration is disabled — contact your administrator."))
+		return
+	}
+
 	var req RegisterRequest
 	if !apipkg.DecodeJSON(w, r, &req) {
 		return
@@ -105,6 +111,12 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	user, token, err := h.svc.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
+		if errors.Is(err, auth.ErrAccountLocked) {
+			w.Header().Set("Retry-After", "900") // 15 minutes
+			apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeRateLimit,
+				"Account temporarily locked due to too many failed attempts. Try again in 15 minutes."))
+			return
+		}
 		apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeUnauthorized, "Invalid email or password"))
 		return
 	}

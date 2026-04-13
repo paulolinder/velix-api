@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -313,21 +312,7 @@ func generateAPIKey() (string, error) {
 
 func validatePassword(p string) error {
 	if len(p) < 8 {
-		return fmt.Errorf("%w: at least 8 characters required", ErrWeakPassword)
-	}
-	var hasUpper, hasLower, hasDigit bool
-	for _, r := range p {
-		switch {
-		case unicode.IsUpper(r):
-			hasUpper = true
-		case unicode.IsLower(r):
-			hasLower = true
-		case unicode.IsDigit(r):
-			hasDigit = true
-		}
-	}
-	if !hasUpper || !hasLower || !hasDigit {
-		return fmt.Errorf("%w: must contain uppercase, lowercase, and a digit", ErrWeakPassword)
+		return fmt.Errorf("%w: minimum 8 characters required", ErrWeakPassword)
 	}
 	return nil
 }

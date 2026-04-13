@@ -1,13 +1,13 @@
 # ─────────────────────────────────────────────────────────────
 # Stage 1 — Builder
 # ─────────────────────────────────────────────────────────────
-FROM --platform=$BUILDPLATFORM golang:1.25 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.25.0-alpine AS builder
 
 ARG VERSION=dev
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates tzdata && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache ca-certificates tzdata git
 
 WORKDIR /app
 

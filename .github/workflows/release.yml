@@ -40,6 +40,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Configura QEMU (emulação arm64)
+        uses: docker/setup-qemu-action@v3
+
       - name: Configura Docker Buildx (multi-arch)
         uses: docker/setup-buildx-action@v3
 

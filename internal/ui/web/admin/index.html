@@ -61,9 +61,15 @@
       <!-- Register -->
       <form x-show="tab==='register'" @submit.prevent="register" class="p-6 space-y-4">
         <div>
-          <label class="block text-xs font-medium text-gray-400 mb-1.5">Nome</label>
-          <input x-model="name" type="text" required autocomplete="name"
-                 class="field" placeholder="Minha Empresa">
+          <label class="block text-xs font-medium text-gray-400 mb-1.5">Nome do workspace</label>
+          <input x-model="name" type="text" required autocomplete="organization"
+                 class="field" placeholder="Minha Empresa" @input="autoSlug()">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1.5">Slug <span class="text-gray-600">(identificador único)</span></label>
+          <input x-model="slug" type="text" required
+                 class="field" placeholder="minha-empresa"
+                 pattern="[a-z0-9\-]+" title="Apenas letras minúsculas, números e hífens">
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-400 mb-1.5">E-mail</label>
@@ -99,7 +105,7 @@
   function auth() {
     return {
       tab: 'login',
-      email: '', password: '', name: '',
+      email: '', password: '', name: '', slug: '',
       loading: false, error: '',
 
       init() {
@@ -132,6 +138,13 @@
         }
       },
 
+      autoSlug() {
+        this.slug = this.name.toLowerCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+      },
+
       async register() {
         this.loading = true;
         this.error = '';
@@ -139,7 +152,12 @@
           const r = await fetch('/v1/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: this.email, password: this.password, name: this.name })
+            body: JSON.stringify({
+              workspace_name: this.name,
+              slug: this.slug,
+              email: this.email,
+              password: this.password
+            })
           });
           const d = await r.json();
           if (!r.ok || !d.success) {

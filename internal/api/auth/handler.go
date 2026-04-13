@@ -61,9 +61,17 @@ func Routes(svc *auth.Service, registrationEnabled bool, authenticate func(http.
 
 // Register handles POST /v1/auth/register.
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
+	// Registration is open when:
+	//   a) REGISTRATION_ENABLED=true (explicit multi-tenant override), OR
+	//   b) no workspace exists yet (first-run, single-tenant default)
+	// After the first workspace is created, registration closes automatically.
 	if !h.registrationEnabled {
-		apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeForbidden, "Registration is disabled — contact your administrator."))
-		return
+		exists, err := h.svc.HasAnyWorkspace(r.Context())
+		if err != nil || exists {
+			apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeForbidden,
+				"Registration is closed. Contact your administrator."))
+			return
+		}
 	}
 
 	var req RegisterRequest

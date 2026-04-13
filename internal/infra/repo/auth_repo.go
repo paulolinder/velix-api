@@ -47,6 +47,12 @@ func (r *AuthRepo) GetWorkspaceByID(ctx context.Context, id string) (*auth.Works
 	return ws, nil
 }
 
+func (r *AuthRepo) HasAnyWorkspace(ctx context.Context) (bool, error) {
+	var exists bool
+	err := r.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM workspaces LIMIT 1)`).Scan(&exists)
+	return exists, err
+}
+
 func (r *AuthRepo) GetWorkspaceBySlug(ctx context.Context, slug string) (*auth.Workspace, error) {
 	const q = `SELECT id, name, slug, created_at, updated_at FROM workspaces WHERE slug = $1`
 	ws, err := scanWorkspace(r.db.QueryRow(ctx, q, slug))

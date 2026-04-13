@@ -52,6 +52,12 @@ func NewService(repo Repository, jwtSecret string, jwtExpiry time.Duration, rdb 
 // Workspace registration
 // ---------------------------------------------------------------------------
 
+// HasAnyWorkspace returns true if at least one workspace exists in the database.
+// Used to auto-close registration after the first workspace is created.
+func (s *Service) HasAnyWorkspace(ctx context.Context) (bool, error) {
+	return s.repo.HasAnyWorkspace(ctx)
+}
+
 // Register creates a new workspace and its first admin user atomically.
 // Returns the workspace, user, and a signed JWT.
 func (s *Service) Register(ctx context.Context, workspaceName, slug, email, password string) (*Workspace, *User, string, error) {

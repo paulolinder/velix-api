@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
@@ -81,6 +82,12 @@ func ParsePagination(r *http.Request) Pagination {
 // LogAndFail logs an internal error and writes a 500 response.
 // Use this for unexpected errors from service/repo layers.
 func LogAndFail(w http.ResponseWriter, r *http.Request, err error, msg string) {
+	// Detect rate limit errors from the engine and return 429 instead of 500.
+	if strings.Contains(err.Error(), "rate limit") {
+		w.Header().Set("Retry-After", "5")
+		WriteError(w, r, NewError(ErrCodeRateLimit, "Message rate limit exceeded — try again in a few seconds"))
+		return
+	}
 	log.Error().Err(err).Str("path", r.URL.Path).Msg(msg)
 	WriteError(w, r, ErrInternal)
 }

@@ -9,17 +9,20 @@ import (
 	"velix/internal/domain/message"
 	"velix/internal/engine"
 	"velix/internal/infra/repo"
+	"velix/internal/license"
 )
 
 // Deps holds all application-level dependencies injected into the HTTP router.
 type Deps struct {
-	Engine           engine.Engine
-	Health           *HealthChecker
-	AuthService      *auth.Service
-	InstanceService  *instance.Service
-	MessageService   *message.Service
-	ChatwootService  *chatwoot.Service
-	AuditRepo        *repo.AuditRepo
-	MediaStorePath   string        // directory for uploaded media files
-	Redis            *redis.Client // distributed rate limiting
+	Engine                  engine.Engine
+	Health                  *HealthChecker
+	AuthService             *auth.Service
+	InstanceService         *instance.Service
+	MessageService          *message.Service
+	ChatwootService         *chatwoot.Service
+	AuditRepo               *repo.AuditRepo
+	MediaStorePath          string        // directory for uploaded media files
+	Redis                   *redis.Client // distributed rate limiting
+	ChatwootWebhookSecret   string            // optional shared secret for webhook validation
+	License                 *license.License  // validated license (nil = free tier)
 }

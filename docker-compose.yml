@@ -4,6 +4,32 @@
 
 services:
 
+  api:
+    build: .
+    container_name: velix_api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://velix:velix@postgres:5432/velix?sslmode=disable
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+    volumes:
+      - ./data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/velix-api", "--health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    profiles:
+      - full
+
   postgres:
     image: postgres:16-alpine
     container_name: velix_postgres

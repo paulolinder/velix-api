@@ -9,6 +9,34 @@ import (
 	"velix/internal/engine"
 )
 
+// GetContacts returns all locally cached contacts from the whatsmeow SQLite store.
+// Only individual contacts are returned (groups and broadcasts are filtered out).
+func (e *Engine) GetContacts(ctx context.Context, instanceID string) (map[string]engine.ContactInfo, error) {
+	mi, err := e.getInstance(instanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	raw, err := mi.client.Store.Contacts.GetAllContacts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("GetAllContacts: %w", err)
+	}
+
+	result := make(map[string]engine.ContactInfo, len(raw))
+	for jid, info := range raw {
+		// Skip groups, broadcasts, status, and newsletter JIDs.
+		if jid.Server != types.DefaultUserServer {
+			continue
+		}
+		result[jid.ToNonAD().String()] = engine.ContactInfo{
+			JID:          jid.ToNonAD().String(),
+			PushName:     info.PushName,
+			BusinessName: info.BusinessName,
+		}
+	}
+	return result, nil
+}
+
 // IsOnWhatsApp checks which phone numbers have WhatsApp accounts.
 func (e *Engine) IsOnWhatsApp(ctx context.Context, instanceID string, phones []string) ([]engine.ContactCheck, error) {
 	mi, err := e.getInstance(instanceID)

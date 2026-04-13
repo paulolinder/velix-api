@@ -5,6 +5,7 @@ package metrics
 import (
 	"fmt"
 	"net/http"
+	"runtime"
 	"sync/atomic"
 	"time"
 )
@@ -75,6 +76,10 @@ func (r *Registry) Handler() http.HandlerFunc {
 			"# HELP velix_websocket_clients Current number of active WebSocket connections.",
 			"# TYPE velix_websocket_clients gauge",
 			fmt.Sprintf("velix_websocket_clients %d", r.WSClients.Load()),
+
+			"# HELP velix_goroutines Current number of goroutines.",
+			"# TYPE velix_goroutines gauge",
+			fmt.Sprintf("velix_goroutines %d", runtime.NumGoroutine()),
 		}
 
 		for _, line := range lines {

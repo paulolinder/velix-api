@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -14,7 +15,12 @@ import (
 	apipkg "velix/internal/api"
 	"velix/internal/domain/auth"
 	"velix/internal/domain/instance"
+	"velix/internal/urlutil"
 )
+
+// instanceNameRegexp allows letters, numbers, spaces, hyphens, underscores.
+// Rejects path separators, shell metacharacters, and control characters.
+var instanceNameRegexp = regexp.MustCompile(`^[\p{L}\p{N} _-]{1,100}$`)
 
 // Handler holds the service dependency for all instance HTTP handlers.
 type Handler struct {
@@ -88,6 +94,17 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	if !apipkg.RequireFields(w, r, map[string]string{"name": req.Name}) {
 		return
+	}
+	if !instanceNameRegexp.MatchString(req.Name) {
+		apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeValidation,
+			"name may only contain letters, numbers, spaces, hyphens, and underscores (max 100 characters)"))
+		return
+	}
+	if req.ProxyURL != "" {
+		if err := urlutil.ValidateWebhookURL(req.ProxyURL); err != nil {
+			apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeValidation, "proxy_url: "+err.Error()))
+			return
+		}
 	}
 
 	wsID := apipkg.WorkspaceID(r)
@@ -302,6 +319,20 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate user-supplied URLs for SSRF before merging.
+	if req.WebhookURL != nil && *req.WebhookURL != "" {
+		if err := urlutil.ValidateWebhookURL(*req.WebhookURL); err != nil {
+			apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeValidation, "webhook_url: "+err.Error()))
+			return
+		}
+	}
+	if req.ChatwootURL != nil && *req.ChatwootURL != "" {
+		if err := urlutil.ValidateWebhookURL(*req.ChatwootURL); err != nil {
+			apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeValidation, "chatwoot_url: "+err.Error()))
+			return
+		}
+	}
+
 	// Merge: only overwrite fields that were actually sent.
 	if req.RejectCall != nil {
 		current.RejectCall = *req.RejectCall
@@ -320,6 +351,9 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.WebhookURL != nil {
 		current.WebhookURL = *req.WebhookURL
+	}
+	if req.WebhookSecret != nil {
+		current.WebhookSecret = *req.WebhookSecret
 	}
 	if req.WebhookEvents != nil {
 		current.WebhookEvents = *req.WebhookEvents

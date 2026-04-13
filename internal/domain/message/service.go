@@ -286,7 +286,11 @@ func (s *Service) dispatchScheduled(ctx context.Context, msg *Message) {
 	switch msg.Type {
 	case "text":
 		text, _ := msg.Content["text"].(string)
-		sent, err := s.engine.SendText(ctx, msg.InstanceID, msg.ToJID, text)
+		var opts []engine.SendOptions
+		if qid, _ := msg.Content["quoted_id"].(string); qid != "" {
+			opts = append(opts, engine.SendOptions{QuotedMessageID: qid})
+		}
+		sent, err := s.engine.SendText(ctx, msg.InstanceID, msg.ToJID, text, opts...)
 		if err != nil {
 			errMsg = err.Error()
 		} else {

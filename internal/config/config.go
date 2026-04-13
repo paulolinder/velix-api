@@ -12,13 +12,15 @@ import (
 
 // Config is the root configuration tree.
 type Config struct {
-	App      AppConfig
-	HTTP     HTTPConfig
-	Database DatabaseConfig
-	Redis    RedisConfig
-	Auth     AuthConfig
-	Media    MediaConfig
-	Engine   EngineConfig
+	App          AppConfig
+	HTTP         HTTPConfig
+	Database     DatabaseConfig
+	Redis        RedisConfig
+	Auth         AuthConfig
+	Media        MediaConfig
+	License      LicenseConfig
+	Engine       EngineConfig
+	Integrations IntegrationsConfig
 }
 
 // AppConfig holds general application settings.
@@ -72,6 +74,20 @@ type MediaConfig struct {
 	MaxFileSize int64 // bytes
 }
 
+// IntegrationsConfig holds optional third-party integration settings.
+type IntegrationsConfig struct {
+	// ChatwootWebhookSecret is an optional shared secret for validating inbound
+	// Chatwoot webhook calls. When set, requests must include it as:
+	//   ?secret=<value>  OR  Authorization: Bearer <value>
+	// Configure the same secret in Chatwoot's webhook settings.
+	ChatwootWebhookSecret string
+}
+
+// LicenseConfig holds license key settings.
+type LicenseConfig struct {
+	Key string // LICENSE_KEY — signed JWT from the Velix license server
+}
+
 // EngineConfig holds WhatsApp engine settings.
 type EngineConfig struct {
 	StorePath      string // base path for per-instance WA SQLite stores
@@ -118,6 +134,12 @@ func Load() (*Config, error) {
 		Media: MediaConfig{
 			StoragePath: env("MEDIA_STORAGE_PATH", "./data/media"),
 			MaxFileSize: envInt64("MEDIA_MAX_FILE_SIZE", 64<<20), // 64 MB
+		},
+		License: LicenseConfig{
+			Key: os.Getenv("LICENSE_KEY"),
+		},
+		Integrations: IntegrationsConfig{
+			ChatwootWebhookSecret: os.Getenv("CHATWOOT_WEBHOOK_SECRET"),
 		},
 		Engine: EngineConfig{
 			StorePath:      env("ENGINE_STORE_PATH", "./data/instances"),

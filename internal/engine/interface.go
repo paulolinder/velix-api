@@ -85,6 +85,10 @@ type Engine interface {
 
 	// --- Contacts ---
 
+	// GetContacts returns all locally cached contacts for an instance.
+	// Contacts are populated by whatsmeow during connection and history sync.
+	GetContacts(ctx context.Context, instanceID string) (map[string]ContactInfo, error)
+
 	// IsOnWhatsApp checks whether the given phone numbers have WhatsApp accounts.
 	IsOnWhatsApp(ctx context.Context, instanceID string, phones []string) ([]ContactCheck, error)
 

@@ -35,6 +35,7 @@ type Settings struct {
 	IgnoreGroups    bool     `json:"ignore_groups"`
 	SyncFullHistory bool     `json:"sync_full_history"`
 	WebhookURL      string   `json:"webhook_url,omitempty"`
+	WebhookSecret   string   `json:"webhook_secret,omitempty"`  // HMAC-SHA256 signing secret
 	WebhookEvents   []string `json:"webhook_events,omitempty"`
 	// HumanPauseDuration is the number of seconds automated replies should be
 	// paused after a manual (or API) response is sent to a contact.

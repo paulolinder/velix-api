@@ -6,6 +6,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"velix/internal/domain/chatwoot"
 )
 
 // ChatwootRepo persists WhatsApp ↔ Chatwoot ID mappings.
@@ -65,6 +67,64 @@ func (r *ChatwootRepo) SaveConversationID(ctx context.Context, instanceID, chatJ
 		ON CONFLICT (instance_id, chat_jid) DO UPDATE
 		  SET conversation_id = EXCLUDED.conversation_id, updated_at = NOW()`
 	_, err := r.db.Exec(ctx, q, instanceID, chatJID, convID)
+	return err
+}
+
+// --- History buffer ----------------------------------------------------------
+
+// SaveHistoryMessages bulk-inserts history sync messages into the buffer.
+// Duplicates (same instance_id + message_id) are silently ignored.
+func (r *ChatwootRepo) SaveHistoryMessages(ctx context.Context, instanceID string, msgs []chatwoot.HistoryBufferMsg) error {
+	if len(msgs) == 0 {
+		return nil
+	}
+	const q = `
+		INSERT INTO chatwoot_history_buffer
+			(instance_id, message_id, chat_jid, sender_jid, from_me, text, msg_type, push_name, timestamp)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		ON CONFLICT (instance_id, message_id) DO NOTHING`
+
+	batch := &pgx.Batch{}
+	for _, m := range msgs {
+		batch.Queue(q, instanceID, m.MessageID, m.ChatJID, m.SenderJID, m.FromMe, m.Text, m.MsgType, m.PushName, m.Timestamp)
+	}
+	br := r.db.SendBatch(ctx, batch)
+	defer br.Close()
+	for range msgs {
+		if _, err := br.Exec(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// GetHistoryMessages returns buffered messages for an instance, ordered by timestamp.
+func (r *ChatwootRepo) GetHistoryMessages(ctx context.Context, instanceID string) ([]chatwoot.HistoryBufferMsg, error) {
+	const q = `SELECT message_id, chat_jid, sender_jid, from_me, text, msg_type, push_name, timestamp
+	           FROM chatwoot_history_buffer
+	           WHERE instance_id=$1
+	           ORDER BY timestamp ASC`
+
+	rows, err := r.db.Query(ctx, q, instanceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []chatwoot.HistoryBufferMsg
+	for rows.Next() {
+		var m chatwoot.HistoryBufferMsg
+		if err := rows.Scan(&m.MessageID, &m.ChatJID, &m.SenderJID, &m.FromMe, &m.Text, &m.MsgType, &m.PushName, &m.Timestamp); err != nil {
+			return nil, err
+		}
+		result = append(result, m)
+	}
+	return result, rows.Err()
+}
+
+// DeleteHistoryMessages removes all buffered messages for an instance after successful sync.
+func (r *ChatwootRepo) DeleteHistoryMessages(ctx context.Context, instanceID string) error {
+	_, err := r.db.Exec(ctx, `DELETE FROM chatwoot_history_buffer WHERE instance_id=$1`, instanceID)
 	return err
 }
 

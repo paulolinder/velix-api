@@ -30,6 +30,8 @@ func instanceScopeID(claims *auth.Claims) string {
 type AuthService interface {
 	ParseToken(tokenStr string) (*auth.Claims, error)
 	ValidateAPIKey(ctx context.Context, raw string) (*auth.APIKey, error)
+	IsBlacklisted(ctx context.Context, tokenStr string) bool
+	Logout(ctx context.Context, tokenStr string) error
 }
 
 // Authenticate returns an HTTP middleware that accepts either:
@@ -68,6 +70,11 @@ func Authenticate(svc AuthService) func(http.Handler) http.Handler {
 				var err error
 				claims, err = svc.ParseToken(raw)
 				if err != nil {
+					apipkg.WriteError(w, r, apipkg.ErrUnauthorized)
+					return
+				}
+				// Check JWT blacklist (logout).
+				if svc.IsBlacklisted(r.Context(), raw) {
 					apipkg.WriteError(w, r, apipkg.ErrUnauthorized)
 					return
 				}

@@ -63,9 +63,10 @@ type RedisConfig struct {
 
 // AuthConfig holds JWT and API key settings.
 type AuthConfig struct {
-	JWTSecret    string
-	JWTExpiry    time.Duration
-	APIKeyLength int
+	JWTSecret           string
+	JWTExpiry           time.Duration
+	APIKeyLength        int
+	RegistrationEnabled bool // when false, POST /auth/register returns 403
 }
 
 // MediaConfig holds local file storage settings.
@@ -127,9 +128,10 @@ func Load() (*Config, error) {
 			DB:       envInt("REDIS_DB", 0),
 		},
 		Auth: AuthConfig{
-			JWTSecret:    os.Getenv("JWT_SECRET"),
-			JWTExpiry:    envDuration("JWT_EXPIRY", 24*time.Hour),
-			APIKeyLength: envInt("API_KEY_LENGTH", 32),
+			JWTSecret:           os.Getenv("JWT_SECRET"),
+			JWTExpiry:           envDuration("JWT_EXPIRY", 24*time.Hour),
+			APIKeyLength:        envInt("API_KEY_LENGTH", 32),
+			RegistrationEnabled: envBool("REGISTRATION_ENABLED", true),
 		},
 		Media: MediaConfig{
 			StoragePath: env("MEDIA_STORAGE_PATH", "./data/media"),

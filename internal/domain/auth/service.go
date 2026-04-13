@@ -18,9 +18,11 @@ import (
 )
 
 const (
-	bcryptCost   = 12
-	apiKeyLength = 32 // bytes → 64 hex chars
-	keyPrefix    = "wapi_"
+	bcryptCost          = 12
+	apiKeyLength        = 32 // bytes → 64 hex chars
+	keyPrefix           = "wapi_"
+	loginMaxAttempts    = 10
+	loginLockDuration   = 15 * time.Minute
 )
 
 // Service handles workspace registration, authentication, and API key management.
@@ -96,17 +98,26 @@ const dummyHash = "$2a$12$X4kv7j5ZcG39WgogSl16xuB4VUg8LmJw3RWqXfGpF0PTHsRj7OWsS"
 
 // Login validates credentials and returns a signed JWT.
 func (s *Service) Login(ctx context.Context, email, password string) (*User, string, error) {
+	// Check account lockout before touching the DB or running bcrypt.
+	if s.isLoginLocked(ctx, email) {
+		return nil, "", ErrAccountLocked
+	}
+
 	user, err := s.repo.GetUserByEmail(ctx, email)
 	if err != nil {
-		// Run a dummy bcrypt comparison so the response time is the same whether
-		// the email exists or not — prevents user enumeration via timing differences.
+		// Equalize response time regardless of whether the email exists.
 		_ = bcrypt.CompareHashAndPassword([]byte(dummyHash), []byte(password))
+		s.recordLoginFailure(ctx, email)
 		return nil, "", ErrInvalidCredentials
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		s.recordLoginFailure(ctx, email)
 		return nil, "", ErrInvalidCredentials
 	}
+
+	// Success — clear failure counter and update last-login timestamp.
+	s.clearLoginFailures(ctx, email)
 
 	if err := s.repo.UpdateLastLogin(ctx, user.ID); err != nil {
 		s.log.Warn().Err(err).Str("user", user.ID).Msg("Failed to update last_login_at")
@@ -118,6 +129,53 @@ func (s *Service) Login(ctx context.Context, email, password string) (*User, str
 	}
 
 	return user, token, nil
+}
+
+// isLoginLocked returns true when the email has exceeded loginMaxAttempts
+// within the last loginLockDuration window.
+func (s *Service) isLoginLocked(ctx context.Context, email string) bool {
+	if s.rdb == nil {
+		return false
+	}
+	key := "login:fail:" + strings.ToLower(email)
+	ctx2, cancel := context.WithTimeout(ctx, 20*time.Millisecond)
+	defer cancel()
+	val, err := s.rdb.Get(ctx2, key).Int64()
+	return err == nil && val >= loginMaxAttempts
+}
+
+// recordLoginFailure increments the per-email failure counter.
+// When the counter reaches loginMaxAttempts the key TTL acts as the lockout window.
+func (s *Service) recordLoginFailure(ctx context.Context, email string) {
+	if s.rdb == nil {
+		return
+	}
+	key := "login:fail:" + strings.ToLower(email)
+	ctx2, cancel := context.WithTimeout(ctx, 20*time.Millisecond)
+	defer cancel()
+	pipe := s.rdb.Pipeline()
+	incr := pipe.Incr(ctx2, key)
+	pipe.Expire(ctx2, key, loginLockDuration)
+	if _, err := pipe.Exec(ctx2); err != nil {
+		return
+	}
+	if incr.Val() == loginMaxAttempts {
+		s.log.Warn().Str("email", email).
+			Int("attempts", loginMaxAttempts).
+			Dur("lock_duration", loginLockDuration).
+			Msg("Account temporarily locked after repeated failed logins")
+	}
+}
+
+// clearLoginFailures removes the failure counter after a successful login.
+func (s *Service) clearLoginFailures(ctx context.Context, email string) {
+	if s.rdb == nil {
+		return
+	}
+	key := "login:fail:" + strings.ToLower(email)
+	ctx2, cancel := context.WithTimeout(ctx, 20*time.Millisecond)
+	defer cancel()
+	_ = s.rdb.Del(ctx2, key).Err()
 }
 
 // ---------------------------------------------------------------------------
@@ -330,4 +388,5 @@ var (
 	ErrInvalidToken       = fmt.Errorf("invalid or expired token")
 	ErrInvalidAPIKey      = fmt.Errorf("invalid or revoked API key")
 	ErrWeakPassword       = fmt.Errorf("password too weak")
+	ErrAccountLocked      = fmt.Errorf("account temporarily locked — too many failed attempts")
 )

@@ -112,7 +112,7 @@ func NewRouter(deps *Deps) http.Handler {
 	r.Route("/v1", func(r chi.Router) {
 		// Auth routes — public (register, login) rate-limited by IP + protected (me, api-keys).
 		loginLimit := middleware.LoginRateLimit(deps.Redis)
-		r.Mount("/auth", authapi.Routes(deps.AuthService, authMiddleware, loginLimit))
+		r.Mount("/auth", authapi.Routes(deps.AuthService, deps.RegistrationEnabled, authMiddleware, loginLimit))
 
 		// Everything below requires a valid JWT or API Key.
 		r.Group(func(r chi.Router) {

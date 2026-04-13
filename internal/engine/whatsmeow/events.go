@@ -147,7 +147,7 @@ func (e *Engine) handleWAEvent(instanceID string, mi *managedInstance, evt any) 
 		})
 
 	case *waevents.HistorySync:
-		go e.handleHistorySync(instanceID, v)
+		go e.handleHistorySync(instanceID, mi, v)
 
 	case *waevents.Receipt:
 		payload := mapReceipt(v, e.ctx, mi.client.Store)
@@ -440,7 +440,7 @@ func extFromMIME(mimeType string) string {
 // dispatches them as an EventHistorySync event. Only text messages from
 // individual chats (not groups) are included — media would require downloading
 // from WhatsApp CDN which is unreliable for old messages.
-func (e *Engine) handleHistorySync(instanceID string, v *waevents.HistorySync) {
+func (e *Engine) handleHistorySync(instanceID string, mi *managedInstance, v *waevents.HistorySync) {
 	defer func() {
 		if r := recover(); r != nil {
 			e.log.Error().Str("instance", instanceID).Interface("panic", r).Msg("Panic in handleHistorySync — recovered")
@@ -454,6 +454,8 @@ func (e *Engine) handleHistorySync(instanceID string, v *waevents.HistorySync) {
 
 	var msgs []engine.HistorySyncMessage
 
+	store := mi.client.Store
+
 	for _, conv := range data.GetConversations() {
 		chatJID := conv.GetID()
 		if chatJID == "" {
@@ -463,6 +465,8 @@ func (e *Engine) handleHistorySync(instanceID string, v *waevents.HistorySync) {
 		if strings.Contains(chatJID, "@g.us") || strings.Contains(chatJID, "@broadcast") {
 			continue
 		}
+		// Resolve LID JIDs to phone-number JIDs so contacts get proper phone numbers.
+		chatJID = resolveHistoryJID(e.ctx, chatJID, store)
 
 		for _, hsm := range conv.GetMessages() {
 			webMsg := hsm.GetMessage()
@@ -522,6 +526,8 @@ func (e *Engine) handleHistorySync(instanceID string, v *waevents.HistorySync) {
 			senderJID := key.GetRemoteJID()
 			if key.GetFromMe() {
 				senderJID = "me"
+			} else {
+				senderJID = resolveHistoryJID(e.ctx, senderJID, store)
 			}
 
 			msgs = append(msgs, engine.HistorySyncMessage{
@@ -557,6 +563,23 @@ func (e *Engine) handleHistorySync(instanceID string, v *waevents.HistorySync) {
 		Payload:    &engine.HistorySyncPayload{Messages: msgs},
 		Timestamp:  time.Now(),
 	})
+}
+
+// resolveHistoryJID converts a raw JID string from history sync into a
+// phone-number JID. WhatsApp may use LID (Linked Identity) JIDs in history
+// data — these are opaque numeric IDs that are meaningless to the user.
+// When the local store has a LID→PN mapping, we replace it with the real number.
+func resolveHistoryJID(ctx context.Context, raw string, store lidResolver) string {
+	parsed, err := types.ParseJID(raw)
+	if err != nil {
+		return raw
+	}
+	if parsed.Server == types.HiddenUserServer && store != nil {
+		if pn, err := store.GetAltJID(ctx, parsed); err == nil && !pn.IsEmpty() {
+			return pn.ToNonAD().String()
+		}
+	}
+	return parsed.ToNonAD().String()
 }
 
 func mapReceipt(v *waevents.Receipt, ctx context.Context, store lidResolver) *engine.ReceiptPayload {

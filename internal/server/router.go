@@ -121,6 +121,9 @@ func NewRouter(deps *Deps) http.Handler {
 			// Metrics — protected to prevent operational info leakage.
 			r.Get("/metrics", metrics.M.Handler())
 
+			// License/trial status — available to all authenticated users.
+			r.Get("/license/status", licenseStatusHandler(deps))
+
 			// Admin API — only admin and developer roles.
 			r.With(middleware.RequireRole("admin", "developer")).
 				Get("/admin/stats", adminapi.Stats(deps.InstanceService, deps.AuthService))
@@ -173,6 +176,41 @@ func NewRouter(deps *Deps) http.Handler {
 	})
 
 	return r
+}
+
+// licenseStatusHandler returns the current license/trial state.
+func licenseStatusHandler(deps *Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		lic := deps.License
+		trial := deps.Trial
+
+		if lic != nil && lic.Valid {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"mode":          "licensed",
+				"plan":          lic.Plan(),
+				"max_instances": lic.MaxInstances(),
+				"email":         lic.Claims.Email,
+				"expires_at":    lic.Claims.ExpiresAt,
+			})
+			return
+		}
+
+		// No valid license — trial mode.
+		expired := trial == nil || trial.IsExpired()
+		daysLeft := 0
+		if trial != nil {
+			daysLeft = trial.DaysRemaining()
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"mode":           "trial",
+			"trial_expired":  expired,
+			"days_remaining": daysLeft,
+			"max_instances":  func() int {
+				if expired { return 0 }
+				return 2
+			}(),
+		})
+	}
 }
 
 // healthHandler is a liveness probe — always 200 if the process is alive.

@@ -721,7 +721,15 @@ function page() {
     _qrReader: null,
 
     settingsModal: null,
-    settingsData: null,
+    settingsData: {
+      reject_call: false, read_messages: false, always_online: false,
+      ignore_groups: false, sync_full_history: false,
+      webhook_url: '', webhook_secret: '', webhook_events: [],
+      human_pause_duration: 0,
+      chatwoot_enabled: false, chatwoot_url: '', chatwoot_token: '',
+      chatwoot_account_id: 0, chatwoot_inbox_id: 0,
+      chatwoot_sign_msgs: false, chatwoot_reopen_conv: false, chatwoot_conv_pending: false,
+    },
     settingsTab: 'behavior',
     settingsSelectedEvents: [],
     humanPauseMinutes: 0,
@@ -902,7 +910,15 @@ function page() {
 
     async openSettings(inst) {
       this.settingsModal = { id: inst.id, name: inst.name };
-      this.settingsData = null;
+      this.settingsData = {
+        reject_call: false, read_messages: false, always_online: false,
+        ignore_groups: false, sync_full_history: false,
+        webhook_url: '', webhook_secret: '', webhook_events: [],
+        human_pause_duration: 0,
+        chatwoot_enabled: false, chatwoot_url: '', chatwoot_token: '',
+        chatwoot_account_id: 0, chatwoot_inbox_id: 0,
+        chatwoot_sign_msgs: false, chatwoot_reopen_conv: false, chatwoot_conv_pending: false,
+      };
       this.settingsTab = 'behavior';
       this.settingsSelectedEvents = [];
       this.settingsError = '';

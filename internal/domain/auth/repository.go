@@ -8,6 +8,7 @@ type Repository interface {
 	CreateWorkspace(ctx context.Context, ws *Workspace) (*Workspace, error)
 	GetWorkspaceByID(ctx context.Context, id string) (*Workspace, error)
 	GetWorkspaceBySlug(ctx context.Context, slug string) (*Workspace, error)
+	HasAnyWorkspace(ctx context.Context) (bool, error)
 
 	// --- Users ---
 	CreateUser(ctx context.Context, user *User) (*User, error)

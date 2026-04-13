@@ -184,32 +184,38 @@ func licenseStatusHandler(deps *Deps) http.HandlerFunc {
 		lic := deps.License
 		trial := deps.Trial
 
+		var payload map[string]any
 		if lic != nil && lic.Valid {
-			writeJSON(w, http.StatusOK, map[string]any{
+			payload = map[string]any{
 				"mode":          "licensed",
 				"plan":          lic.Plan(),
 				"max_instances": lic.MaxInstances(),
 				"email":         lic.Claims.Email,
 				"expires_at":    lic.Claims.ExpiresAt,
-			})
-			return
+			}
+		} else {
+			expired := trial == nil || trial.IsExpired()
+			daysLeft := 0
+			if trial != nil {
+				daysLeft = trial.DaysRemaining()
+			}
+			maxInst := 2
+			if expired {
+				maxInst = 0
+			}
+			payload = map[string]any{
+				"mode":           "trial",
+				"trial_expired":  expired,
+				"days_remaining": daysLeft,
+				"max_instances":  maxInst,
+			}
 		}
 
-		// No valid license — trial mode.
-		expired := trial == nil || trial.IsExpired()
-		daysLeft := 0
-		if trial != nil {
-			daysLeft = trial.DaysRemaining()
-		}
-		writeJSON(w, http.StatusOK, map[string]any{
-			"mode":           "trial",
-			"trial_expired":  expired,
-			"days_remaining": daysLeft,
-			"max_instances":  func() int {
-				if expired { return 0 }
-				return 2
-			}(),
-		})
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		enc := json.NewEncoder(w)
+		enc.SetEscapeHTML(false)
+		_ = enc.Encode(map[string]any{"success": true, "data": payload})
 	}
 }
 

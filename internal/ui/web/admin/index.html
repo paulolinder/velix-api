@@ -23,81 +23,92 @@
 
       <!-- Tabs -->
       <div class="flex border-b border-[#1f2937]">
-        <button @click="tab='login'; error=''" :class="tab==='login' ? 'text-white border-b-2 border-green-500' : 'text-gray-500 hover:text-gray-300'"
+        <button @click="tab='login'; error=''"
+                :class="tab==='login' ? 'text-white border-b-2 border-green-500' : 'text-gray-500 hover:text-gray-300'"
                 class="flex-1 px-6 py-4 text-sm font-medium transition">Entrar</button>
-        <button @click="tab='register'; error=''" :class="tab==='register' ? 'text-white border-b-2 border-green-500' : 'text-gray-500 hover:text-gray-300'"
+        <button @click="tab='register'; error=''"
+                :class="tab==='register' ? 'text-white border-b-2 border-green-500' : 'text-gray-500 hover:text-gray-300'"
                 class="flex-1 px-6 py-4 text-sm font-medium transition">Criar conta</button>
       </div>
 
       <!-- Login -->
-      <form x-show="tab==='login'" @submit.prevent="login" class="p-6 space-y-4">
-        <div>
-          <label class="block text-xs font-medium text-gray-400 mb-1.5">E-mail</label>
-          <input x-model="email" type="email" required autocomplete="email"
-                 class="field" placeholder="admin@example.com">
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-400 mb-1.5">Senha</label>
-          <input x-model="password" type="password" required autocomplete="current-password"
-                 class="field" placeholder="••••••••">
-        </div>
-
-        <div x-show="error" x-transition
-             class="flex items-start gap-2 px-3 py-2.5 bg-red-950/60 border border-red-900/50 rounded-xl text-red-400 text-xs">
-          <svg class="w-3.5 h-3.5 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          <span x-text="error"></span>
-        </div>
-
-        <button type="submit" :disabled="loading"
-                class="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm">
-          <svg x-show="loading" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-          </svg>
-          <span x-text="loading ? 'Entrando…' : 'Entrar'"></span>
-        </button>
-      </form>
+      <div x-show="tab==='login'" class="p-6">
+        <form @submit.prevent="login" class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1.5">E-mail</label>
+            <input x-model="loginEmail" type="email" required autocomplete="email"
+                   class="field" placeholder="admin@example.com">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1.5">Senha</label>
+            <input x-model="loginPassword" type="password" required autocomplete="current-password"
+                   class="field" placeholder="••••••••">
+          </div>
+          <div x-show="error" x-transition
+               class="flex items-start gap-2 px-3 py-2.5 bg-red-950/60 border border-red-900/50 rounded-xl text-red-400 text-xs">
+            <svg class="w-3.5 h-3.5 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span x-text="error"></span>
+          </div>
+          <button type="submit" :disabled="loading"
+                  class="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm">
+            <svg x-show="loading" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            <span x-text="loading ? 'Entrando…' : 'Entrar'"></span>
+          </button>
+        </form>
+      </div>
 
       <!-- Register -->
-      <form x-show="tab==='register'" @submit.prevent="register" class="p-6 space-y-4">
-        <div>
-          <label class="block text-xs font-medium text-gray-400 mb-1.5">Nome do workspace</label>
-          <input x-model="name" type="text" required autocomplete="organization"
-                 class="field" placeholder="Minha Empresa" @input="autoSlug()">
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-400 mb-1.5">Slug <span class="text-gray-600">(identificador único)</span></label>
-          <input x-model="slug" type="text" required
-                 class="field" placeholder="minha-empresa"
-                 pattern="[a-z0-9\-]+" title="Apenas letras minúsculas, números e hífens">
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-400 mb-1.5">E-mail</label>
-          <input x-model="email" type="email" required autocomplete="email"
-                 class="field" placeholder="admin@example.com">
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-400 mb-1.5">Senha</label>
-          <input x-model="password" type="password" required autocomplete="new-password"
-                 class="field" placeholder="Ex: Senha123">
-          <p class="mt-1.5 text-xs text-gray-600">Mínimo 8 caracteres com maiúscula, minúscula e número.</p>
-        </div>
-
-        <div x-show="error" x-transition
-             class="flex items-start gap-2 px-3 py-2.5 bg-red-950/60 border border-red-900/50 rounded-xl text-red-400 text-xs">
-          <svg class="w-3.5 h-3.5 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          <span x-text="error"></span>
-        </div>
-
-        <button type="submit" :disabled="loading"
-                class="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm">
-          <svg x-show="loading" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-          </svg>
-          <span x-text="loading ? 'Criando conta…' : 'Criar conta'"></span>
-        </button>
-      </form>
+      <div x-show="tab==='register'" class="p-6">
+        <form @submit.prevent="register" class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1.5">Nome do workspace</label>
+            <input x-model="regName" type="text" required autocomplete="organization"
+                   class="field" placeholder="Minha Empresa">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1.5">E-mail</label>
+            <input x-model="regEmail" type="email" required autocomplete="email"
+                   class="field" placeholder="admin@example.com">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1.5">Senha</label>
+            <input x-model="regPassword" type="password" required autocomplete="new-password"
+                   class="field" placeholder="Ex: Senha123"
+                   @input="checkPassword()">
+            <!-- Requisitos de senha em tempo real -->
+            <div class="mt-2 space-y-1">
+              <div class="flex items-center gap-1.5 text-xs" :class="pwLen ? 'text-green-400' : 'text-gray-600'">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" :d="pwLen ? 'M5 13l4 4L19 7' : 'M6 18L18 6M6 6l12 12'"/></svg>
+                Mínimo 8 caracteres
+              </div>
+              <div class="flex items-center gap-1.5 text-xs" :class="pwUpper ? 'text-green-400' : 'text-gray-600'">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" :d="pwUpper ? 'M5 13l4 4L19 7' : 'M6 18L18 6M6 6l12 12'"/></svg>
+                Uma letra maiúscula
+              </div>
+              <div class="flex items-center gap-1.5 text-xs" :class="pwDigit ? 'text-green-400' : 'text-gray-600'">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" :d="pwDigit ? 'M5 13l4 4L19 7' : 'M6 18L18 6M6 6l12 12'"/></svg>
+                Um número
+              </div>
+            </div>
+          </div>
+          <div x-show="error" x-transition
+               class="flex items-start gap-2 px-3 py-2.5 bg-red-950/60 border border-red-900/50 rounded-xl text-red-400 text-xs">
+            <svg class="w-3.5 h-3.5 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span x-text="error"></span>
+          </div>
+          <button type="submit" :disabled="loading || !pwLen || !pwUpper || !pwDigit"
+                  class="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm">
+            <svg x-show="loading" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            <span x-text="loading ? 'Criando conta…' : 'Criar conta'"></span>
+          </button>
+        </form>
+      </div>
 
     </div>
   </div>
@@ -106,13 +117,31 @@
   function auth() {
     return {
       tab: 'login',
-      email: '', password: '', name: '', slug: '',
+      // Campos separados por form — evita conflito entre login e register
+      loginEmail: '', loginPassword: '',
+      regName: '', regEmail: '', regPassword: '',
+      // Estado de senha em tempo real
+      pwLen: false, pwUpper: false, pwDigit: false,
       loading: false, error: '',
 
       init() {
         if (localStorage.getItem('wa_token')) {
           window.location.href = '/admin/dashboard.html';
         }
+      },
+
+      checkPassword() {
+        const p = this.regPassword;
+        this.pwLen   = p.length >= 8;
+        this.pwUpper = /[A-Z]/.test(p);
+        this.pwDigit = /[0-9]/.test(p);
+      },
+
+      makeSlug(name) {
+        return name.toLowerCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '') || 'workspace';
       },
 
       async login() {
@@ -122,7 +151,7 @@
           const r = await fetch('/v1/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: this.email, password: this.password })
+            body: JSON.stringify({ email: this.loginEmail, password: this.loginPassword })
           });
           const d = await r.json();
           if (!r.ok || !d.success) {
@@ -130,7 +159,7 @@
             return;
           }
           localStorage.setItem('wa_token', d.data.token);
-          localStorage.setItem('wa_email', d.data.user?.email || this.email);
+          localStorage.setItem('wa_email', d.data.user?.email || this.loginEmail);
           window.location.href = '/admin/dashboard.html';
         } catch (e) {
           this.error = 'Erro de rede — o servidor está rodando?';
@@ -139,43 +168,33 @@
         }
       },
 
-      autoSlug() {
-        this.slug = this.name.toLowerCase()
-          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-+|-+$/g, '');
-      },
-
       async register() {
         this.loading = true;
         this.error = '';
-        // Fallback: gera slug se o campo ficou vazio (autofill, paste sem evento input)
-        if (!this.slug && this.name) this.autoSlug();
+        const slug = this.makeSlug(this.regName);
         try {
           const r = await fetch('/v1/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              workspace_name: this.name,
-              slug: this.slug,
-              email: this.email,
-              password: this.password
+              workspace_name: this.regName,
+              slug:           slug,
+              email:          this.regEmail,
+              password:       this.regPassword
             })
           });
           const d = await r.json();
           if (!r.ok || !d.success) {
-            // Mostra quais campos estão faltando, se houver detalhes
             const details = d.error?.details;
             if (details && typeof details === 'object') {
-              const missing = Object.keys(details).join(', ');
-              this.error = `Campos obrigatórios: ${missing}`;
+              this.error = 'Campos faltando: ' + Object.keys(details).join(', ');
             } else {
               this.error = d.error?.message || 'Erro ao criar conta';
             }
             return;
           }
           localStorage.setItem('wa_token', d.data.token);
-          localStorage.setItem('wa_email', d.data.user?.email || this.email);
+          localStorage.setItem('wa_email', d.data.user?.email || this.regEmail);
           window.location.href = '/admin/dashboard.html';
         } catch (e) {
           this.error = 'Erro de rede — o servidor está rodando?';

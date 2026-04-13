@@ -23,9 +23,9 @@
 
       <!-- Tabs -->
       <div class="flex border-b border-[#1f2937]">
-        <button @click="tab='login'" :class="tab==='login' ? 'text-white border-b-2 border-green-500' : 'text-gray-500 hover:text-gray-300'"
+        <button @click="tab='login'; error=''" :class="tab==='login' ? 'text-white border-b-2 border-green-500' : 'text-gray-500 hover:text-gray-300'"
                 class="flex-1 px-6 py-4 text-sm font-medium transition">Entrar</button>
-        <button @click="tab='register'" :class="tab==='register' ? 'text-white border-b-2 border-green-500' : 'text-gray-500 hover:text-gray-300'"
+        <button @click="tab='register'; error=''" :class="tab==='register' ? 'text-white border-b-2 border-green-500' : 'text-gray-500 hover:text-gray-300'"
                 class="flex-1 px-6 py-4 text-sm font-medium transition">Criar conta</button>
       </div>
 
@@ -149,6 +149,8 @@
       async register() {
         this.loading = true;
         this.error = '';
+        // Fallback: gera slug se o campo ficou vazio (autofill, paste sem evento input)
+        if (!this.slug && this.name) this.autoSlug();
         try {
           const r = await fetch('/v1/auth/register', {
             method: 'POST',
@@ -162,7 +164,14 @@
           });
           const d = await r.json();
           if (!r.ok || !d.success) {
-            this.error = d.error?.message || d.message || 'Erro ao criar conta';
+            // Mostra quais campos estão faltando, se houver detalhes
+            const details = d.error?.details;
+            if (details && typeof details === 'object') {
+              const missing = Object.keys(details).join(', ');
+              this.error = `Campos obrigatórios: ${missing}`;
+            } else {
+              this.error = d.error?.message || 'Erro ao criar conta';
+            }
             return;
           }
           localStorage.setItem('wa_token', d.data.token);

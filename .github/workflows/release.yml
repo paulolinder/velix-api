@@ -48,7 +48,7 @@ jobs:
 
       - name: Build e Push (master → latest)
         if: steps.version.outputs.IS_RELEASE == 'false'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
@@ -60,7 +60,7 @@ jobs:
 
       - name: Build e Push (tag → versão + latest)
         if: steps.version.outputs.IS_RELEASE == 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
@@ -71,6 +71,15 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Verifica manifesto arm64
+        run: |
+          echo "=== Inspecionando manifesto ==="
+          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          echo "=== Verificando presença de arm64 ==="
+          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            | grep -q "linux/arm64" && echo "✓ arm64 presente no manifesto" \
+            || (echo "✗ arm64 AUSENTE — build falhou para arm64" && exit 1)
 
       - name: Cria GitHub Release
         if: steps.version.outputs.IS_RELEASE == 'true'

@@ -1,13 +1,11 @@
 # ─────────────────────────────────────────────────────────────
 # Stage 1 — Builder
 # ─────────────────────────────────────────────────────────────
-FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 ARG VERSION=dev
-ARG TARGETOS=linux
-ARG TARGETARCH=amd64
 
-RUN apk add --no-cache git ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata
 
 WORKDIR /app
 
@@ -15,8 +13,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-    go build -ldflags="-s -w -X main.version=${VERSION}" \
+RUN CGO_ENABLED=0 go build \
+    -ldflags="-s -w -X main.version=${VERSION}" \
     -o /app/bin/velix-api ./cmd/api
 
 # ─────────────────────────────────────────────────────────────

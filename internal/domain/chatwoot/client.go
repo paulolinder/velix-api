@@ -7,11 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -195,11 +195,7 @@ func (c *Client) PostIncomingMedia(ctx context.Context, convID int64, caption, f
 
 	// Derive file extension from MIME type when no filename available.
 	if fileName == "" {
-		exts, _ := mime.ExtensionsByType(mimeType)
-		ext := ".bin"
-		if len(exts) > 0 {
-			ext = exts[0]
-		}
+		ext := extFromMIME(mimeType)
 		fileName = "attachment" + ext
 	}
 
@@ -277,4 +273,44 @@ func (c *Client) do(ctx context.Context, method, rawURL string, body any) ([]byt
 		return nil, fmt.Errorf("chatwoot api %s %s → %d: %s", method, rawURL, resp.StatusCode, string(data))
 	}
 	return data, nil
+}
+
+// extFromMIME returns a file extension for the given MIME type.
+// WhatsApp audio messages use "audio/ogg; codecs=opus" which mime.ExtensionsByType
+// may not recognise, so we handle common media types explicitly.
+func extFromMIME(mimeType string) string {
+	base := strings.Split(mimeType, ";")[0]
+	base = strings.TrimSpace(strings.ToLower(base))
+	switch base {
+	case "audio/ogg", "audio/opus":
+		return ".ogg"
+	case "audio/mpeg", "audio/mp3":
+		return ".mp3"
+	case "audio/aac":
+		return ".aac"
+	case "audio/amr":
+		return ".amr"
+	case "audio/wav", "audio/x-wav":
+		return ".wav"
+	case "image/jpeg":
+		return ".jpg"
+	case "image/png":
+		return ".png"
+	case "image/webp":
+		return ".webp"
+	case "image/gif":
+		return ".gif"
+	case "video/mp4":
+		return ".mp4"
+	case "video/3gpp":
+		return ".3gp"
+	case "application/pdf":
+		return ".pdf"
+	case "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+		return ".xlsx"
+	case "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+		return ".docx"
+	default:
+		return ".bin"
+	}
 }

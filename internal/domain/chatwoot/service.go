@@ -110,73 +110,28 @@ func (s *Service) SyncHistory(ctx context.Context, instanceID string) (*SyncResu
 		return nil, fmt.Errorf("chatwoot is not fully configured on this instance")
 	}
 
-	contacts, err := s.eng.GetContacts(ctx, instanceID)
+	// Load buffered history messages first — sync is driven exclusively by
+	// chats that appear in the history buffer, not by the full contact list.
+	// This prevents importing group members and contacts with no conversation.
+	histMsgs, err := s.mappings.GetHistoryMessages(ctx, instanceID)
 	if err != nil {
-		return nil, fmt.Errorf("get contacts: %w", err)
+		return nil, fmt.Errorf("load history buffer: %w", err)
 	}
 
 	client := NewClient(cfg.ChatwootURL, cfg.ChatwootToken, cfg.ChatwootAccountID)
 	result := &SyncResult{}
 
+	if len(histMsgs) == 0 {
+		s.log.Info().Str("instance", instanceID).Msg("Chatwoot sync: history buffer empty, nothing to sync")
+		return result, nil
+	}
+
 	// Rate limit: ~3 contacts/sec (each contact = up to 2 API calls).
 	ticker := time.NewTicker(350 * time.Millisecond)
 	defer ticker.Stop()
 
-	for jid, info := range contacts {
-		select {
-		case <-ctx.Done():
-			return result, ctx.Err()
-		case <-ticker.C:
-		}
-
-		phone := jidToPhone(jid)
-		name := info.PushName
-		if name == "" {
-			name = info.BusinessName
-		}
-		if name == "" {
-			name = phone
-		}
-
-		// Check if we already have a mapping (skip = already synced).
-		if existingID, _ := s.mappings.GetContactID(ctx, instanceID, jid); existingID != 0 {
-			result.Skipped++
-			continue
-		}
-
-		contactID, err := client.FindOrCreateContact(ctx, name, "+"+phone, cfg.ChatwootInboxID)
-		if err != nil {
-			s.log.Warn().Err(err).Str("jid", jid).Msg("Chatwoot sync: failed to create contact")
-			result.Errors++
-			continue
-		}
-		_ = s.mappings.SaveContactID(ctx, instanceID, jid, contactID)
-		result.ContactsCreated++
-
-		// Wait before conversation creation.
-		select {
-		case <-ctx.Done():
-			return result, ctx.Err()
-		case <-ticker.C:
-		}
-
-		_, err = client.FindOrCreateConversation(ctx, contactID, cfg.ChatwootInboxID, cfg.ChatwootConvPending)
-		if err != nil {
-			s.log.Warn().Err(err).Str("jid", jid).Msg("Chatwoot sync: failed to create conversation")
-			result.Errors++
-			continue
-		}
-		_ = s.mappings.SaveConversationID(ctx, instanceID, jid, contactID)
-		result.ConversationsCreated++
-	}
-
-	// Phase 2: replay buffered history messages into Chatwoot conversations.
-	histMsgs, err := s.mappings.GetHistoryMessages(ctx, instanceID)
-	if err != nil {
-		s.log.Warn().Err(err).Str("instance", instanceID).Msg("Chatwoot sync: failed to load history buffer")
-	} else if len(histMsgs) > 0 {
-		s.replayHistoryMessages(ctx, client, instanceID, cfg, histMsgs, result, ticker)
-	}
+	// Replay buffered history messages — contacts/conversations are created on demand.
+	s.replayHistoryMessages(ctx, client, instanceID, cfg, histMsgs, result, ticker)
 
 	s.log.Info().
 		Str("instance", instanceID).

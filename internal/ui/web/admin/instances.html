@@ -927,9 +927,11 @@ function page() {
       this.webhookShowSecret = false;
       try {
         const d = await apiCall('GET', '/instances/' + inst.id + '/settings');
-        this.settingsData = d;
-        this.humanPauseMinutes = Math.round((d.human_pause_duration || 0) / 60);
-        this.settingsSelectedEvents = [...(d.webhook_events || [])];
+        if (d) {
+          this.settingsData = d;
+          this.humanPauseMinutes = Math.round((d.human_pause_duration || 0) / 60);
+          this.settingsSelectedEvents = [...(d.webhook_events || [])];
+        }
       } catch (e) {
         this.settingsError = e.message;
       } finally {

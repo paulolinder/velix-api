@@ -9,6 +9,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"path/filepath"
 	"strings"
@@ -184,6 +185,10 @@ func (c *Client) PostIncomingMessage(ctx context.Context, convID int64, content 
 // PostIncomingMedia uploads a media file as an incoming message attachment.
 // fileName is the file name shown to the agent; mimeType is the MIME type; data is the file bytes.
 func (c *Client) PostIncomingMedia(ctx context.Context, convID int64, caption, fileName, mimeType string, data []byte) error {
+	// Normalise MIME type — strip codec params (e.g. "audio/ogg; codecs=opus" → "audio/ogg").
+	cleanMIME := strings.Split(mimeType, ";")[0]
+	cleanMIME = strings.TrimSpace(cleanMIME)
+
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 
@@ -199,7 +204,13 @@ func (c *Client) PostIncomingMedia(ctx context.Context, convID int64, caption, f
 		fileName = "attachment" + ext
 	}
 
-	part, err := mw.CreateFormFile("attachments[]", filepath.Base(fileName))
+	// Use CreatePart with explicit Content-Type instead of CreateFormFile which
+	// hardcodes application/octet-stream. Chatwoot needs the real MIME type to
+	// render inline audio/video players instead of showing a download link.
+	partHeader := make(textproto.MIMEHeader)
+	partHeader.Set("Content-Disposition", fmt.Sprintf(`form-data; name="attachments[]"; filename="%s"`, filepath.Base(fileName)))
+	partHeader.Set("Content-Type", cleanMIME)
+	part, err := mw.CreatePart(partHeader)
 	if err != nil {
 		return err
 	}

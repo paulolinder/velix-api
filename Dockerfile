@@ -1,11 +1,19 @@
 # ─────────────────────────────────────────────────────────────
 # Stage 1 — Builder
 # ─────────────────────────────────────────────────────────────
-FROM --platform=$BUILDPLATFORM golang:1.25.0-alpine AS builder
 
-ARG VERSION=dev
+# Escopo global — Buildx injeta os valores corretos para cada plataforma.
+# Devem ficar ANTES do primeiro FROM para não serem sobrescritos pelo
+# --platform do builder stage.
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
+
+FROM --platform=$BUILDPLATFORM golang:1.25.0-alpine AS builder
+
+# Herda do escopo global (não define default aqui — usa o valor injetado)
+ARG TARGETOS
+ARG TARGETARCH
+ARG VERSION=dev
 
 RUN apk add --no-cache ca-certificates tzdata git
 

@@ -24,5 +24,6 @@ type Deps struct {
 	MediaStorePath          string        // directory for uploaded media files
 	Redis                   *redis.Client // distributed rate limiting
 	ChatwootWebhookSecret   string            // optional shared secret for webhook validation
-	License                 *license.License  // validated license (nil = free tier)
+	License                 *license.License     // validated license (nil = free tier)
+	Trial                   *license.TrialInfo   // trial state (nil only if init failed)
 }

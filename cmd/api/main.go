@@ -59,13 +59,30 @@ func main() {
 	// 2b. Validate license key.
 	lic, licErr := license.Validate(cfg.License.Key)
 	if licErr != nil {
-		appLog.Warn().Err(licErr).Msg("License validation failed — running in free tier (max 2 instances)")
+		appLog.Warn().Err(licErr).Msg("License validation failed — running in trial/free tier")
 	} else {
 		appLog.Info().
 			Str("plan", lic.Plan()).
 			Int("max_instances", lic.MaxInstances()).
 			Str("email", lic.Claims.Email).
 			Msg("License validated")
+	}
+
+	// 2c. Init trial tracking (creates /data/.trial on first run).
+	trial, trialErr := license.InitTrial(cfg.Engine.StorePath)
+	if trialErr != nil {
+		appLog.Warn().Err(trialErr).Msg("Could not init trial — defaulting to expired")
+	}
+	if lic == nil || !lic.Valid {
+		if trial != nil && trial.IsExpired() {
+			appLog.Warn().
+				Int("trial_days", license.TrialDays).
+				Msg("Trial expired — set LICENSE_KEY to continue using Velix API")
+		} else if trial != nil {
+			appLog.Info().
+				Int("days_remaining", trial.DaysRemaining()).
+				Msg("Running in trial mode")
+		}
 	}
 
 	// 3. Run database migrations (embedded SQL, safe to run on every startup).
@@ -95,11 +112,18 @@ func main() {
 	}
 
 	// 6. Boot the WhatsApp engine with a cancellable context.
-	// Override max instances with license limit (license takes priority).
-	if lic != nil && lic.Valid && lic.MaxInstances() > 0 {
-		cfg.Engine.MaxInstances = lic.MaxInstances()
-	} else if lic == nil || !lic.Valid {
-		cfg.Engine.MaxInstances = 2 // free tier
+	// Priority: valid license > trial active (2 instances) > trial expired (0 = blocked).
+	if lic != nil && lic.Valid {
+		if lic.MaxInstances() > 0 {
+			cfg.Engine.MaxInstances = lic.MaxInstances()
+		}
+	} else {
+		// No valid license — check trial.
+		if trial != nil && trial.IsExpired() {
+			cfg.Engine.MaxInstances = 0 // trial expired: block all instance creation
+		} else {
+			cfg.Engine.MaxInstances = 2 // trial active: 2 instances
+		}
 	}
 
 	engineCtx, engineCancel := context.WithCancel(ctx)
@@ -164,6 +188,7 @@ func main() {
 		Redis:                 rdb,
 		ChatwootWebhookSecret: cfg.Integrations.ChatwootWebhookSecret,
 		License:               lic,
+		Trial:                 trial,
 	}
 	router := server.NewRouter(deps)
 	srv := server.New(cfg.HTTP, router)

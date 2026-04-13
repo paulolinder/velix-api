@@ -9,7 +9,7 @@
   <script defer src="/admin/dist/alpine.min.js"></script>
 </head>
 <body class="bg-[#0d1117] min-h-screen flex items-center justify-center p-4">
-  <div x-data="login()" x-cloak class="w-full max-w-sm">
+  <div x-data="auth()" x-cloak class="w-full max-w-sm">
 
     <!-- Logo -->
     <div class="text-center mb-8">
@@ -20,10 +20,17 @@
 
     <!-- Card -->
     <div class="bg-[#161b22] rounded-2xl border border-[#1f2937] shadow-2xl overflow-hidden">
-      <div class="px-6 py-5 border-b border-[#1f2937]">
-        <p class="text-sm font-medium text-white">Entrar na conta</p>
+
+      <!-- Tabs -->
+      <div class="flex border-b border-[#1f2937]">
+        <button @click="tab='login'" :class="tab==='login' ? 'text-white border-b-2 border-green-500' : 'text-gray-500 hover:text-gray-300'"
+                class="flex-1 px-6 py-4 text-sm font-medium transition">Entrar</button>
+        <button @click="tab='register'" :class="tab==='register' ? 'text-white border-b-2 border-green-500' : 'text-gray-500 hover:text-gray-300'"
+                class="flex-1 px-6 py-4 text-sm font-medium transition">Criar conta</button>
       </div>
-      <form @submit.prevent="submit" class="p-6 space-y-4">
+
+      <!-- Login -->
+      <form x-show="tab==='login'" @submit.prevent="login" class="p-6 space-y-4">
         <div>
           <label class="block text-xs font-medium text-gray-400 mb-1.5">E-mail</label>
           <input x-model="email" type="email" required autocomplete="email"
@@ -50,23 +57,58 @@
           <span x-text="loading ? 'Entrando…' : 'Entrar'"></span>
         </button>
       </form>
-    </div>
 
-    <p class="text-center text-gray-600 text-xs mt-5">
-      Sem conta? Use <code class="text-gray-500">POST /v1/auth/register</code>
-    </p>
+      <!-- Register -->
+      <form x-show="tab==='register'" @submit.prevent="register" class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1.5">Nome</label>
+          <input x-model="name" type="text" required autocomplete="name"
+                 class="field" placeholder="Minha Empresa">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1.5">E-mail</label>
+          <input x-model="email" type="email" required autocomplete="email"
+                 class="field" placeholder="admin@example.com">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1.5">Senha</label>
+          <input x-model="password" type="password" required autocomplete="new-password"
+                 class="field" placeholder="Mínimo 8 caracteres">
+        </div>
+
+        <div x-show="error" x-transition
+             class="flex items-start gap-2 px-3 py-2.5 bg-red-950/60 border border-red-900/50 rounded-xl text-red-400 text-xs">
+          <svg class="w-3.5 h-3.5 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span x-text="error"></span>
+        </div>
+
+        <button type="submit" :disabled="loading"
+                class="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm">
+          <svg x-show="loading" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          <span x-text="loading ? 'Criando conta…' : 'Criar conta'"></span>
+        </button>
+      </form>
+
+    </div>
   </div>
 
   <script>
-  function login() {
+  function auth() {
     return {
-      email: '', password: '', loading: false, error: '',
+      tab: 'login',
+      email: '', password: '', name: '',
+      loading: false, error: '',
+
       init() {
         if (localStorage.getItem('wa_token')) {
           window.location.href = '/admin/dashboard.html';
         }
       },
-      async submit() {
+
+      async login() {
         this.loading = true;
         this.error = '';
         try {
@@ -78,6 +120,30 @@
           const d = await r.json();
           if (!r.ok || !d.success) {
             this.error = d.error?.message || 'E-mail ou senha inválidos';
+            return;
+          }
+          localStorage.setItem('wa_token', d.data.token);
+          localStorage.setItem('wa_email', d.data.user?.email || this.email);
+          window.location.href = '/admin/dashboard.html';
+        } catch (e) {
+          this.error = 'Erro de rede — o servidor está rodando?';
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      async register() {
+        this.loading = true;
+        this.error = '';
+        try {
+          const r = await fetch('/v1/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: this.email, password: this.password, name: this.name })
+          });
+          const d = await r.json();
+          if (!r.ok || !d.success) {
+            this.error = d.error?.message || 'Erro ao criar conta';
             return;
           }
           localStorage.setItem('wa_token', d.data.token);

@@ -2,6 +2,7 @@ package waengine
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -395,6 +396,10 @@ func (e *Engine) downloadMediaAndDispatch(instanceID string, mi *managedInstance
 			} else {
 				payload.Media.LocalPath = destPath
 				payload.Media.DirectURL = "/v1/media/" + mediaID
+			}
+			// Include base64 in webhook payload when the setting is enabled.
+			if mi.getSettings().WebhookBase64 {
+				payload.Media.Base64 = base64.StdEncoding.EncodeToString(data)
 			}
 		}
 	}

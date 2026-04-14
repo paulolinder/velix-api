@@ -41,7 +41,8 @@ type Settings struct {
 	// paused after a manual (or API) response is sent to a contact.
 	// 0 = disabled.  The webhook payload includes a "Paused" flag so external
 	// automation (e.g. n8n) can respect the pause window.
-	HumanPauseDuration int `json:"human_pause_duration"`
+	HumanPauseDuration int  `json:"human_pause_duration"`
+	WebhookBase64      bool `json:"webhook_base64"` // include base64 media data in webhook payloads
 
 	// Chatwoot integration — routes inbound WhatsApp messages to a Chatwoot inbox
 	// and forwards agent replies back to WhatsApp.

@@ -361,6 +361,20 @@
         <p class="text-[11px] text-gray-600 mt-1.5">Quando configurado, cada entrega inclui o header <code class="text-green-400 bg-green-900/30 px-1 rounded">X-Webhook-Signature: sha256=…</code></p>
       </div>
 
+      <!-- Base64 toggle -->
+      <div class="flex items-center justify-between bg-[#0d1117] border border-[#1f2937] rounded-xl px-4 py-3.5">
+        <div class="pr-4">
+          <p class="text-sm font-medium text-gray-200">Enviar Base64 no Webhook</p>
+          <p class="text-xs text-gray-500 mt-0.5">Quando ativado, mídia recebida é enviada como base64 no payload. Desativado, envia apenas a URL de download.</p>
+        </div>
+        <button @click="settingsData.webhook_base64 = !settingsData.webhook_base64"
+                :class="settingsData.webhook_base64 ? 'toggle toggle-on' : 'toggle toggle-off'"
+                class="toggle flex-shrink-0">
+          <span :class="settingsData.webhook_base64 ? 'toggle-knob toggle-knob-on' : 'toggle-knob toggle-knob-off'"
+                class="toggle-knob"></span>
+        </button>
+      </div>
+
       <div>
         <label class="block text-xs font-medium text-gray-400 mb-2">
           Filtro de Eventos
@@ -731,7 +745,7 @@ function page() {
       reject_call: false, read_messages: false, always_online: false,
       ignore_groups: false, sync_full_history: false,
       webhook_url: '', webhook_secret: '', webhook_events: [],
-      human_pause_duration: 0,
+      human_pause_duration: 0, webhook_base64: false,
       chatwoot_enabled: false, chatwoot_url: '', chatwoot_token: '',
       chatwoot_account_id: 0, chatwoot_inbox_id: 0,
       chatwoot_sign_msgs: false, chatwoot_reopen_conv: false, chatwoot_conv_pending: false,
@@ -966,6 +980,7 @@ function page() {
           webhook_secret:       this.settingsData.webhook_secret || '',
           webhook_events:       this.settingsSelectedEvents,
           human_pause_duration: (parseInt(this.humanPauseMinutes) || 0) * 60,
+          webhook_base64:       this.settingsData.webhook_base64,
           chatwoot_enabled:     this.settingsData.chatwoot_enabled,
           chatwoot_url:         this.settingsData.chatwoot_url || '',
           chatwoot_token:       this.settingsData.chatwoot_token || '',

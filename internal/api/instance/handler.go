@@ -361,6 +361,9 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	if req.HumanPauseDuration != nil {
 		current.HumanPauseDuration = *req.HumanPauseDuration
 	}
+	if req.WebhookBase64 != nil {
+		current.WebhookBase64 = *req.WebhookBase64
+	}
 	if req.ChatwootEnabled != nil {
 		current.ChatwootEnabled = *req.ChatwootEnabled
 	}

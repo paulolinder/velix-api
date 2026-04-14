@@ -27,6 +27,7 @@ type InstanceSettings struct {
 	IgnoreGroups       bool
 	SyncFullHistory    bool
 	HumanPauseDuration int // seconds to pause after a FromMe message; 0 = disabled
+	WebhookBase64      bool // when true, webhook payloads include media as base64
 }
 
 // QREvent is emitted on the QR code channel.
@@ -210,6 +211,7 @@ type MediaInfo struct {
 	IsVoiceNote     bool   `json:"is_voice_note,omitempty"`    // true for PTT (push-to-talk) voice messages
 	DirectURL       string `json:"direct_url,omitempty"`       // local URL to download via GET /v1/media/{id}
 	LocalPath       string `json:"local_path,omitempty"`       // server-side file path after download
+	Base64          string `json:"base64,omitempty"`           // base64-encoded data (when webhook_base64 setting is ON)
 }
 
 // LocationInfo holds coordinates and metadata for a location message.

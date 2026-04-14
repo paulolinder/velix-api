@@ -69,6 +69,7 @@ type SettingsResponse struct {
 	WebhookSecret      string   `json:"webhook_secret,omitempty"` // HMAC secret (shown when set, never auto-generated)
 	WebhookEvents      []string `json:"webhook_events"`
 	HumanPauseDuration int      `json:"human_pause_duration"`
+	WebhookBase64      bool     `json:"webhook_base64"`
 	// Chatwoot
 	ChatwootEnabled     bool   `json:"chatwoot_enabled"`
 	ChatwootURL         string `json:"chatwoot_url"`
@@ -92,6 +93,7 @@ type UpdateSettingsRequest struct {
 	WebhookSecret      *string   `json:"webhook_secret,omitempty"`
 	WebhookEvents      *[]string `json:"webhook_events,omitempty"`
 	HumanPauseDuration *int      `json:"human_pause_duration,omitempty"`
+	WebhookBase64      *bool    `json:"webhook_base64,omitempty"`
 	// Chatwoot
 	ChatwootEnabled     *bool   `json:"chatwoot_enabled,omitempty"`
 	ChatwootURL         *string `json:"chatwoot_url,omitempty"`
@@ -118,6 +120,7 @@ func settingsFromDomain(s *instance.Settings) *SettingsResponse {
 		WebhookSecret:      s.WebhookSecret,
 		WebhookEvents:      events,
 		HumanPauseDuration: s.HumanPauseDuration,
+		WebhookBase64:      s.WebhookBase64,
 		ChatwootEnabled:    s.ChatwootEnabled,
 		ChatwootURL:        s.ChatwootURL,
 		ChatwootToken:      s.ChatwootToken,

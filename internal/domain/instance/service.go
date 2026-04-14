@@ -215,6 +215,7 @@ func (s *Service) RestoreFromDB(ctx context.Context) error {
 			IgnoreGroups:       inst.Settings.IgnoreGroups,
 			SyncFullHistory:    inst.Settings.SyncFullHistory,
 			HumanPauseDuration: inst.Settings.HumanPauseDuration,
+			WebhookBase64:      inst.Settings.WebhookBase64,
 		})
 
 		// Auto-reconnect if it was connected when the server last shut down.
@@ -300,6 +301,7 @@ func (s *Service) UpdateSettings(ctx context.Context, workspaceID, instanceID st
 		IgnoreGroups:       settings.IgnoreGroups,
 		SyncFullHistory:    settings.SyncFullHistory,
 		HumanPauseDuration: settings.HumanPauseDuration,
+		WebhookBase64:      settings.WebhookBase64,
 	})
 
 	s.log.Info().Str("id", instanceID).Msg("Instance settings updated")

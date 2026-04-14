@@ -36,14 +36,13 @@ type AuthService interface {
 
 // Authenticate returns an HTTP middleware that accepts either:
 //
-//   - Global API key: X-API-Key: <API_KEY env value>  (server-level, full admin access)
-//   - Bearer JWT:     Authorization: Bearer <jwt>
-//   - API Key:        Authorization: Bearer wapi_<key>
-//                     or X-API-Key: wapi_<key>
+//   - Bearer JWT:  Authorization: Bearer <jwt>
+//   - API Key:     Authorization: Bearer wapi_<key>
+//                  or X-API-Key: wapi_<key>
 //
 // On success it stores *auth.Claims in the request context.
 // On failure it returns 401.
-func Authenticate(svc AuthService, globalAPIKey string) func(http.Handler) http.Handler {
+func Authenticate(svc AuthService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			raw := extractToken(r)
@@ -53,13 +52,6 @@ func Authenticate(svc AuthService, globalAPIKey string) func(http.Handler) http.
 			}
 
 			var claims *auth.Claims
-
-			// Global server-level API key (set via API_KEY env var).
-			if globalAPIKey != "" && raw == globalAPIKey {
-				claims = &auth.Claims{Role: auth.RoleAdmin}
-				next.ServeHTTP(w, r.WithContext(WithClaims(r.Context(), claims)))
-				return
-			}
 
 			if strings.HasPrefix(raw, "wapi_") {
 				// API Key path.
@@ -133,11 +125,6 @@ func RequireInstanceOwner(checker InstanceOwnership) func(http.Handler) http.Han
 			instanceID := chi.URLParam(r, "instanceID")
 			if instanceID == "" {
 				apipkg.WriteError(w, r, apipkg.ErrInstanceNotFound)
-				return
-			}
-			// Global API key (admin role with no workspace) has access to all instances.
-			if claims.Role == auth.RoleAdmin && claims.WorkspaceID == "" {
-				next.ServeHTTP(w, r)
 				return
 			}
 			// If the API key is scoped to a specific instance, enforce it.

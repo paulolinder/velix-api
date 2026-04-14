@@ -107,7 +107,7 @@ func NewRouter(deps *Deps) http.Handler {
 	r.Get("/v1/ws", wsHandler.ServeHTTP)
 
 	// ---- API v1 ----
-	authMiddleware := middleware.Authenticate(deps.AuthService)
+	authMiddleware := middleware.Authenticate(deps.AuthService, deps.GlobalAPIKey)
 
 	r.Route("/v1", func(r chi.Router) {
 		// Auth routes — public (register, login) rate-limited by IP + protected (me, api-keys).

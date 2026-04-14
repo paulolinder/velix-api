@@ -27,4 +27,5 @@ type Deps struct {
 	License                 *license.License     // validated license (nil = free tier)
 	Trial                   *license.TrialInfo   // trial state (nil only if init failed)
 	RegistrationEnabled     bool                 // mirrors cfg.Auth.RegistrationEnabled
+	GlobalAPIKey            string               // API_KEY env — server-level key for n8n/integrations
 }

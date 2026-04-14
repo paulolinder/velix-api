@@ -191,6 +191,7 @@ func main() {
 		License:               lic,
 		Trial:                 trial,
 		RegistrationEnabled:   cfg.Auth.RegistrationEnabled,
+		GlobalAPIKey:          cfg.Auth.GlobalAPIKey,
 	}
 	router := server.NewRouter(deps)
 	srv := server.New(cfg.HTTP, router)

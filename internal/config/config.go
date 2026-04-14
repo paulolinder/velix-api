@@ -66,7 +66,8 @@ type AuthConfig struct {
 	JWTSecret           string
 	JWTExpiry           time.Duration
 	APIKeyLength        int
-	RegistrationEnabled bool // when false, POST /auth/register returns 403
+	RegistrationEnabled bool   // when false, POST /auth/register returns 403
+	GlobalAPIKey        string // API_KEY — server-level key, like Evolution API
 }
 
 // MediaConfig holds local file storage settings.
@@ -132,6 +133,7 @@ func Load() (*Config, error) {
 			JWTExpiry:           envDuration("JWT_EXPIRY", 24*time.Hour),
 			APIKeyLength:        envInt("API_KEY_LENGTH", 32),
 			RegistrationEnabled: envBool("REGISTRATION_ENABLED", true),
+			GlobalAPIKey:        os.Getenv("API_KEY"),
 		},
 		Media: MediaConfig{
 			StoragePath: env("MEDIA_STORAGE_PATH", "./data/media"),

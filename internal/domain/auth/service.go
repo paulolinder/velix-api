@@ -311,7 +311,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, workspaceID, userID, name st
 		return nil, "", fmt.Errorf("hash key: %w", err)
 	}
 
-	prefix := keyPrefix + raw[:12]
+	prefix := raw[:len(keyPrefix)+12] // "wapi_" + first 12 hex chars
 
 	key, err := s.repo.CreateAPIKey(ctx, &APIKey{
 		WorkspaceID: workspaceID,
@@ -371,7 +371,8 @@ func generateAPIKey() (string, error) {
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
-	return hex.EncodeToString(b), nil
+	// Include the wapi_ prefix so the returned key is ready to use directly.
+	return keyPrefix + hex.EncodeToString(b), nil
 }
 
 func validatePassword(p string) error {

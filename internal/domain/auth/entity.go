@@ -22,11 +22,12 @@ func ClaimsFromContext(ctx context.Context) *Claims {
 
 // Workspace is a tenant — every instance and user belongs to one workspace.
 type Workspace struct {
-	ID        string
-	Name      string
-	Slug      string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID              string
+	Name            string
+	Slug            string
+	TermsAcceptedAt *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // Role controls what a user can do inside their workspace.

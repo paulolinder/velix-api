@@ -61,7 +61,11 @@ func (s *Service) HasAnyWorkspace(ctx context.Context) (bool, error) {
 
 // Register creates a new workspace and its first admin user atomically.
 // Returns the workspace, user, and a signed JWT.
-func (s *Service) Register(ctx context.Context, workspaceName, slug, email, password string) (*Workspace, *User, string, error) {
+func (s *Service) Register(ctx context.Context, workspaceName, slug, email, password string, termsAccepted bool) (*Workspace, *User, string, error) {
+	if !termsAccepted {
+		return nil, nil, "", ErrTermsNotAccepted
+	}
+
 	if err := validatePassword(password); err != nil {
 		return nil, nil, "", err
 	}
@@ -71,7 +75,8 @@ func (s *Service) Register(ctx context.Context, workspaceName, slug, email, pass
 		return nil, nil, "", fmt.Errorf("hash password: %w", err)
 	}
 
-	ws, err := s.repo.CreateWorkspace(ctx, &Workspace{Name: workspaceName, Slug: slug})
+	now := time.Now()
+	ws, err := s.repo.CreateWorkspace(ctx, &Workspace{Name: workspaceName, Slug: slug, TermsAcceptedAt: &now})
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("create workspace: %w", err)
 	}
@@ -532,6 +537,7 @@ func stringSliceClaim(mc jwt.MapClaims, key string) []string {
 
 // Sentinel errors.
 var (
+	ErrTermsNotAccepted   = fmt.Errorf("you must accept the license terms to register")
 	ErrInvalidCredentials = fmt.Errorf("invalid email or password")
 	ErrInvalidToken       = fmt.Errorf("invalid or expired token")
 	ErrInvalidAPIKey      = fmt.Errorf("invalid or revoked API key")

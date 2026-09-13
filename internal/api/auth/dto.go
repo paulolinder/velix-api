@@ -82,6 +82,12 @@ type CreateAPIKeyResponse struct {
 	Detail *APIKeyResponse `json:"detail"`
 }
 
+// RegistrationStatusResponse tells the login page whether registering a new
+// workspace is currently allowed.
+type RegistrationStatusResponse struct {
+	Open bool `json:"open"`
+}
+
 func workspaceFromDomain(ws *auth.Workspace) *WorkspaceResponse {
 	return &WorkspaceResponse{ID: ws.ID, Name: ws.Name, Slug: ws.Slug, CreatedAt: ws.CreatedAt}
 }

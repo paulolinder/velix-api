@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/svg+xml" href="/admin/dist/favicon.svg">
-  <title>Velix API — Chaves de API</title>
+  <title>Velix API — Usuários</title>
   <link rel="stylesheet" href="/admin/dist/main.css">
   <script defer src="/admin/dist/alpine.min.js"></script>
   <script src="/admin/shared.js"></script>
@@ -44,7 +44,7 @@
         <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
         Uso
       </a>
-      <a href="/admin/users.html" x-show="isAdmin()" class="nav-item">
+      <a href="/admin/users.html" class="nav-item active">
         <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 100-8 4 4 0 000 8zm6 3.13a4 4 0 010 7.75"/></svg>
         Usuários
       </a>
@@ -77,12 +77,12 @@
       <!-- Header -->
       <div class="flex items-center justify-between mb-7">
         <div>
-          <h1 class="text-xl font-semibold text-white">Chaves de API</h1>
-          <p class="text-gray-500 text-sm mt-0.5">Credenciais de acesso programático</p>
+          <h1 class="text-xl font-semibold text-white">Usuários</h1>
+          <p class="text-gray-500 text-sm mt-0.5">Quem tem acesso a este workspace</p>
         </div>
         <button @click="openCreate()" class="btn btn-primary">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-          Nova Chave
+          Novo Usuário
         </button>
       </div>
 
@@ -95,78 +95,37 @@
         </button>
       </div>
 
-      <!-- Loading skeleton -->
-      <div x-show="loading" class="bg-[#161b22] border border-[#1f2937] rounded-2xl overflow-hidden animate-pulse">
-        <div class="px-5 py-3 border-b border-[#1f2937] flex gap-4">
-          <div class="h-3 bg-gray-800 rounded w-1/4"></div>
-          <div class="h-3 bg-gray-800 rounded w-1/6 ml-auto"></div>
-        </div>
-        <template x-for="i in 3">
-          <div class="px-5 py-4 border-b border-[#1f2937] last:border-0 flex items-center gap-4">
-            <div class="flex-1 space-y-2">
-              <div class="h-3 bg-gray-800 rounded w-1/3"></div>
-              <div class="h-2.5 bg-gray-800 rounded w-1/4"></div>
-            </div>
-            <div class="h-3 bg-gray-800 rounded w-20"></div>
-            <div class="h-5 bg-gray-800 rounded-full w-12"></div>
-          </div>
-        </template>
-      </div>
-
-      <!-- Empty state -->
-      <div x-show="!loading && keys.length === 0"
-           class="flex flex-col items-center justify-center py-24 text-center">
-        <div class="w-16 h-16 rounded-2xl bg-[#161b22] border border-[#1f2937] flex items-center justify-center mb-4">
-          <svg class="w-7 h-7 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-        </div>
-        <p class="text-white font-medium mb-1">Nenhuma chave de API</p>
-        <p class="text-gray-500 text-sm mb-5">Crie uma para autenticar requisições externas.</p>
-        <button @click="openCreate()" class="btn btn-primary">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-          Criar Chave de API
-        </button>
-      </div>
-
       <!-- Table -->
-      <div x-show="!loading && keys.length > 0" class="bg-[#161b22] border border-[#1f2937] rounded-2xl overflow-hidden">
+      <div x-show="!loading && users.length > 0" class="bg-[#161b22] border border-[#1f2937] rounded-2xl overflow-hidden">
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-[#1f2937]">
-              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nome / Prefixo</th>
-              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Último Uso</th>
-              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Expira</th>
-              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">E-mail</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Papel</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Permissões</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Último Login</th>
               <th class="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Ação</th>
             </tr>
           </thead>
           <tbody>
-            <template x-for="k in keys" :key="k.id">
-              <tr class="border-b border-[#1f2937] last:border-0 hover:bg-white/[.02] transition" :class="k.revoked_at ? 'opacity-50' : ''">
+            <template x-for="u in users" :key="u.id">
+              <tr class="border-b border-[#1f2937] last:border-0 hover:bg-white/[.02] transition">
+                <td class="px-5 py-4 font-medium text-white" x-text="u.email"></td>
                 <td class="px-5 py-4">
-                  <p class="font-medium text-white" x-text="k.name || 'Sem nome'"></p>
-                  <code class="text-xs text-gray-500 font-mono" x-text="k.key_prefix + '…'"></code>
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                        :class="u.role === 'admin' ? 'bg-green-900/40 text-green-400' : 'bg-gray-800 text-gray-400'"
+                        x-text="u.role === 'admin' ? 'admin' : 'membro'"></span>
                 </td>
-                <td class="px-5 py-4 text-gray-500 text-xs" x-text="fmtDate(k.last_used_at)"></td>
-                <td class="px-5 py-4 text-gray-500 text-xs" x-text="k.expires_at ? fmtDate(k.expires_at) : 'Nunca'"></td>
+                <td class="px-5 py-4 text-gray-500 text-xs" x-text="u.role === 'admin' ? 'Acesso total' : (u.permissions.length ? u.permissions.join(', ') : 'Nenhuma')"></td>
+                <td class="px-5 py-4 text-gray-500 text-xs" x-text="fmtDate(u.last_login_at)"></td>
                 <td class="px-5 py-4">
-                  <span x-show="k.revoked_at"
-                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-950/60 text-red-400">
-                    <span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span>revogada
-                  </span>
-                  <span x-show="!k.revoked_at && k.expires_at && new Date(k.expires_at) < new Date()"
-                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-950/60 text-orange-400">
-                    <span class="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>expirada
-                  </span>
-                  <span x-show="!k.revoked_at && (!k.expires_at || new Date(k.expires_at) >= new Date())"
-                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-900/40 text-green-400">
-                    <span class="w-1.5 h-1.5 bg-green-400 rounded-full"></span>ativa
-                  </span>
-                </td>
-                <td class="px-5 py-4">
-                  <div class="flex justify-end">
-                    <button @click="revokeKey(k)" x-show="!k.revoked_at"
+                  <div class="flex justify-end gap-1">
+                    <button @click="openEdit(u)" class="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-white border border-transparent hover:border-[#2a3441] rounded-lg transition">
+                      Editar
+                    </button>
+                    <button @click="removeUser(u)" x-show="u.email !== email"
                             class="px-3 py-1.5 text-xs font-medium bg-transparent hover:bg-red-950/60 text-gray-500 hover:text-red-400 border border-transparent hover:border-red-900/50 rounded-lg transition">
-                      Revogar
+                      Remover
                     </button>
                   </div>
                 </td>
@@ -176,82 +135,88 @@
         </table>
       </div>
 
+      <!-- Empty state -->
+      <div x-show="!loading && users.length === 0" class="flex flex-col items-center justify-center py-24 text-center">
+        <p class="text-white font-medium mb-1">Nenhum usuário ainda</p>
+        <p class="text-gray-500 text-sm">Isso não deveria acontecer — você está logado.</p>
+      </div>
+
     </div>
   </main>
 </div>
 
-<!-- Create Modal -->
-<div x-show="createModal" x-transition:enter="transition ease-out duration-200"
+<!-- Create/Edit Modal -->
+<div x-show="modalOpen" x-transition:enter="transition ease-out duration-200"
      x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
      x-transition:leave="transition ease-in duration-150"
      x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
      class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-     @keydown.escape.window="createModal=false">
+     @keydown.escape.window="modalOpen=false">
   <div class="bg-[#161b22] border border-[#1f2937] rounded-2xl w-full max-w-md shadow-2xl"
        x-transition:enter="transition ease-out duration-200"
        x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
        @click.stop>
 
-    <!-- Header -->
     <div class="flex items-center justify-between px-6 py-4 border-b border-[#1f2937]">
-      <h2 class="text-base font-semibold text-white">Nova Chave de API</h2>
-      <button @click="createModal=false; newKey=''" class="text-gray-600 hover:text-gray-400 transition">
+      <h2 class="text-base font-semibold text-white" x-text="editingUser ? 'Editar Usuário' : 'Novo Usuário'"></h2>
+      <button @click="modalOpen=false" class="text-gray-600 hover:text-gray-400 transition">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
     </div>
 
     <div class="p-6">
-      <!-- Raw key display -->
-      <div x-show="newKey" class="mb-5 p-4 bg-amber-950/50 border border-amber-800/50 rounded-xl">
-        <div class="flex items-start gap-2 mb-3">
-          <svg class="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-          <p class="text-amber-300 text-xs font-medium">Copie agora — esta chave não será exibida novamente!</p>
+      <form @submit.prevent="save">
+        <div class="mb-4" x-show="!editingUser">
+          <label class="block text-xs font-medium text-gray-400 mb-1.5">E-mail</label>
+          <input x-model="form.email" type="email" class="field" placeholder="usuario@empresa.com">
         </div>
-        <div class="flex items-center gap-2">
-          <code class="flex-1 text-xs text-amber-200 font-mono break-all bg-black/30 px-3 py-2 rounded-lg select-all" x-text="newKey"></code>
-          <button @click="copyKey()" class="flex-shrink-0 px-3 py-2 bg-amber-800/60 hover:bg-amber-700/60 text-amber-200 text-xs rounded-lg transition whitespace-nowrap">
-            <span x-text="copied ? '✓ Copiado' : 'Copiar'"></span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Form -->
-      <form @submit.prevent="createKey" x-show="!newKey">
         <div class="mb-4">
-          <label class="block text-xs font-medium text-gray-400 mb-1.5">Nome <span class="text-gray-600">(opcional)</span></label>
-          <input x-model="form.name" type="text" class="field" placeholder="Ex: Servidor de produção">
+          <label class="block text-xs font-medium text-gray-400 mb-1.5" x-text="editingUser ? 'Nova senha (opcional)' : 'Senha'"></label>
+          <input x-model="form.password" type="password" class="field" placeholder="••••••••">
         </div>
-        <div class="mb-5">
-          <div class="flex items-center justify-between mb-1.5">
-            <label class="text-xs font-medium text-gray-400">Expira em</label>
-            <label class="flex items-center gap-2 cursor-pointer text-xs text-gray-500 hover:text-gray-300 transition">
-              <input type="checkbox" x-model="form.no_expiry" class="w-3.5 h-3.5 rounded accent-green-500">
-              Sem expiração
+        <div class="mb-4">
+          <label class="block text-xs font-medium text-gray-400 mb-1.5">Papel</label>
+          <select x-model="form.role" class="field">
+            <option value="member">Membro</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="mb-5" x-show="form.role === 'member'">
+          <label class="block text-xs font-medium text-gray-400 mb-2">Permissões</label>
+          <div class="space-y-2">
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <input type="checkbox" value="messages:view" x-model="form.permissions" class="w-3.5 h-3.5 rounded accent-green-500">
+              Visualizar mensagens
+            </label>
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <input type="checkbox" value="messages:send" x-model="form.permissions" class="w-3.5 h-3.5 rounded accent-green-500">
+              Enviar/responder mensagens
+            </label>
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <input type="checkbox" value="messages:schedule" x-model="form.permissions" class="w-3.5 h-3.5 rounded accent-green-500">
+              Agendar mensagens
+            </label>
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <input type="checkbox" value="instances:manage" x-model="form.permissions" class="w-3.5 h-3.5 rounded accent-green-500">
+              Gerenciar instâncias
+            </label>
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <input type="checkbox" value="contacts:manage" x-model="form.permissions" class="w-3.5 h-3.5 rounded accent-green-500">
+              Gerenciar contatos e grupos
             </label>
           </div>
-          <input x-model="form.expires_at" type="datetime-local"
-                 :disabled="form.no_expiry"
-                 :class="form.no_expiry ? 'opacity-40 cursor-not-allowed' : ''"
-                 class="field">
-          <p x-show="form.no_expiry" class="mt-1.5 text-xs text-green-500">Esta chave nunca expira.</p>
         </div>
 
         <div x-show="formError" class="mb-4 p-3 bg-red-950/60 border border-red-900/40 rounded-lg text-red-400 text-xs" x-text="formError"></div>
 
         <div class="flex gap-3">
-          <button type="button" @click="createModal=false" class="btn btn-secondary flex-1">Cancelar</button>
+          <button type="button" @click="modalOpen=false" class="btn btn-secondary flex-1">Cancelar</button>
           <button type="submit" :disabled="formLoading" class="btn btn-primary flex-1">
-            <span x-show="formLoading">
-              <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-            </span>
-            <span x-show="!formLoading">Criar Chave</span>
+            <span x-show="!formLoading" x-text="editingUser ? 'Salvar' : 'Criar Usuário'"></span>
+            <span x-show="formLoading">Salvando…</span>
           </button>
         </div>
       </form>
-
-      <button x-show="newKey" @click="closeCreate()" class="btn btn-primary w-full mt-1">
-        Pronto — já copiei a chave
-      </button>
     </div>
   </div>
 </div>
@@ -260,26 +225,26 @@
 function page() {
   return {
     email: getUserEmail(),
-    keys: [],
+    users: [],
     loading: false,
     error: '',
-    createModal: false,
-    form: { name: '', expires_at: '', no_expiry: false },
+    modalOpen: false,
+    editingUser: null,
+    form: { email: '', password: '', role: 'member', permissions: [] },
     formLoading: false,
     formError: '',
-    newKey: '',
-    copied: false,
 
     init() {
       if (!requireAuth()) return;
+      if (!isAdmin()) { window.location.href = '/admin/dashboard.html'; return; }
       this.load();
     },
 
     async load() {
       this.loading = true;
       try {
-        const d = await apiCall('GET', '/auth/api-keys');
-        this.keys = d || [];
+        const d = await apiCall('GET', '/users');
+        this.users = d || [];
       } catch (e) {
         this.error = e.message;
       } finally {
@@ -288,28 +253,36 @@ function page() {
     },
 
     openCreate() {
-      this.form = { name: '', expires_at: '', no_expiry: false };
+      this.editingUser = null;
+      this.form = { email: '', password: '', role: 'member', permissions: [] };
       this.formError = '';
-      this.newKey = '';
-      this.copied = false;
-      this.createModal = true;
+      this.modalOpen = true;
     },
 
-    closeCreate() {
-      this.createModal = false;
-      this.newKey = '';
-      this.copied = false;
+    openEdit(u) {
+      this.editingUser = u;
+      this.form = { email: u.email, password: '', role: u.role, permissions: [...u.permissions] };
+      this.formError = '';
+      this.modalOpen = true;
     },
 
-    async createKey() {
+    async save() {
       this.formLoading = true;
       this.formError = '';
       try {
-        const body = {};
-        if (this.form.name.trim()) body.name = this.form.name.trim();
-        if (!this.form.no_expiry && this.form.expires_at) body.expires_at = new Date(this.form.expires_at).toISOString();
-        const d = await apiCall('POST', '/auth/api-keys', body);
-        this.newKey = d.key;
+        if (this.editingUser) {
+          const body = { role: this.form.role, permissions: this.form.permissions };
+          if (this.form.password) body.password = this.form.password;
+          await apiCall('PATCH', '/users/' + this.editingUser.id, body);
+        } else {
+          await apiCall('POST', '/users', {
+            email: this.form.email,
+            password: this.form.password,
+            role: this.form.role,
+            permissions: this.form.permissions,
+          });
+        }
+        this.modalOpen = false;
         await this.load();
       } catch (e) {
         this.formError = e.message;
@@ -318,19 +291,10 @@ function page() {
       }
     },
 
-    async copyKey() {
+    async removeUser(u) {
+      if (!confirm(`Remover "${u.email}"? Esta ação não pode ser desfeita.`)) return;
       try {
-        await navigator.clipboard.writeText(this.newKey);
-        this.copied = true;
-        setTimeout(() => { this.copied = false; }, 2000);
-      } catch (e) { /* fallback: let user select manually */ }
-    },
-
-    async revokeKey(k) {
-      const name = k.name || k.key_prefix;
-      if (!confirm(`Revogar a chave "${name}"? Esta ação não pode ser desfeita.`)) return;
-      try {
-        await apiDelete('/auth/api-keys/' + k.id);
+        await apiDelete('/users/' + u.id);
         await this.load();
       } catch (e) {
         this.error = e.message;

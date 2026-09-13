@@ -47,15 +47,20 @@ func Routes(svc *auth.Service, registrationEnabled bool, authenticate func(http.
 	// Public — no token required, but rate-limited per IP.
 	r.With(loginMW).Post("/register", h.Register)
 	r.With(loginMW).Post("/login", h.Login)
+	r.Get("/registration-status", h.RegistrationStatus)
 
 	// Protected — require valid JWT or API key.
 	r.Group(func(r chi.Router) {
 		r.Use(authenticate)
 		r.Get("/me", h.Me)
 		r.Post("/logout", h.Logout)
-		r.Get("/api-keys", h.ListAPIKeys)
-		r.Post("/api-keys", h.CreateAPIKey)
-		r.Delete("/api-keys/{keyID}", h.RevokeAPIKey)
+
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.RequireRole(auth.RoleAdmin))
+			r.Get("/api-keys", h.ListAPIKeys)
+			r.Post("/api-keys", h.CreateAPIKey)
+			r.Delete("/api-keys/{keyID}", h.RevokeAPIKey)
+		})
 	})
 
 	return r
@@ -151,6 +156,17 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		Token: token,
 		User:  userFromDomain(user),
 	})
+}
+
+// RegistrationStatus handles GET /v1/auth/registration-status — public, used
+// by the login page to decide whether to show the "Criar conta" tab.
+func (h *Handler) RegistrationStatus(w http.ResponseWriter, r *http.Request) {
+	open := h.registrationEnabled
+	if !open {
+		exists, err := h.svc.HasAnyWorkspace(r.Context())
+		open = err == nil && !exists
+	}
+	apipkg.WriteJSON(w, r, http.StatusOK, &RegistrationStatusResponse{Open: open})
 }
 
 // Me handles GET /v1/auth/me — returns the current user's claims.

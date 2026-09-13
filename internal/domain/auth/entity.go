@@ -33,10 +33,28 @@ type Workspace struct {
 type Role string
 
 const (
-	RoleAdmin     Role = "admin"
-	RoleDeveloper Role = "developer"
-	RoleViewer    Role = "viewer"
+	RoleAdmin  Role = "admin"
+	RoleMember Role = "member"
 )
+
+// Permission is a granular capability that can be granted to a "member" user.
+// It has no effect on "admin" users, who always have full access.
+type Permission string
+
+const (
+	PermMessagesView     Permission = "messages:view"
+	PermMessagesSend     Permission = "messages:send"
+	PermMessagesSchedule Permission = "messages:schedule"
+	PermInstancesManage  Permission = "instances:manage"
+	PermContactsManage   Permission = "contacts:manage"
+)
+
+// AllPermissions lists every valid permission value — used to validate and
+// filter permissions requested for a "member" user.
+var AllPermissions = []Permission{
+	PermMessagesView, PermMessagesSend, PermMessagesSchedule,
+	PermInstancesManage, PermContactsManage,
+}
 
 // User is a human operator belonging to a workspace.
 type User struct {
@@ -45,6 +63,7 @@ type User struct {
 	Email        string
 	PasswordHash string
 	Role         Role
+	Permissions  []string // ignored/empty when Role == RoleAdmin
 	LastLoginAt  *time.Time
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
@@ -83,5 +102,6 @@ type Claims struct {
 	WorkspaceID string   `json:"wid"`
 	Email       string   `json:"email"`
 	Role        Role     `json:"role"`
+	Permissions []string `json:"perms,omitempty"` // populated for JWT sessions of "member" users
 	Scopes      []string `json:"scopes,omitempty"` // populated for API key requests
 }

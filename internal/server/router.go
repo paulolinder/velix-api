@@ -134,22 +134,24 @@ func NewRouter(deps *Deps) http.Handler {
 			manageInstances := middleware.RequirePermission(auth.PermInstancesManage)
 			r.Route("/instances", func(r chi.Router) {
 				r.With(manageInstances).Post("/", instH.Create)
-				r.With(manageInstances).Get("/", instH.List)
+				r.Get("/", instH.List) // read-only listing — open to any authenticated workspace member
 
 				r.Route("/{instanceID}", func(r chi.Router) {
 					// All instance routes require ownership — dual layer:
 					// middleware verifies workspace + scope, service verifies again internally.
 					r.Use(middleware.RequireInstanceOwner(deps.InstanceService))
 
+					// Read-only — open to any authenticated workspace member.
+					r.Get("/", instH.Get)
+					r.Get("/status", instH.GetStatus)
+
 					// Core CRUD + lifecycle — gated by instances:manage.
 					r.Group(func(r chi.Router) {
 						r.Use(manageInstances)
-						r.Get("/", instH.Get)
 						r.Delete("/", instH.Delete)
 						r.Post("/connect", instH.Connect)
 						r.Post("/disconnect", instH.Disconnect)
 						r.Post("/logout", instH.Logout)
-						r.Get("/status", instH.GetStatus)
 						r.Get("/qr", instH.GetQR)
 						r.Post("/pair-code", instH.PairCode)
 						r.Mount("/settings", instanceapi.SettingsRoutes(deps.InstanceService))

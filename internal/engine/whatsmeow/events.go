@@ -38,10 +38,18 @@ func (e *Engine) handleWAEvent(instanceID string, mi *managedInstance, evt any) 
 		})
 
 	case *waevents.Disconnected:
-		// Don't overwrite LoggedOut status with Disconnected.
-		if mi.getStatus() != engine.StatusLoggedOut {
-			mi.setStatus(engine.StatusDisconnected)
+		cur := mi.getStatus()
+		if cur == engine.StatusLoggedOut {
+			// Never overwrite LoggedOut — reconnect is not expected after a forced logout.
+			return
 		}
+		// Guard against stale out-of-order delivery: if the client already reconnected
+		// (auto-reconnect goroutine raced ahead of this event), skip the status downgrade.
+		if cur == engine.StatusConnected && mi.getClient().IsConnected() {
+			e.log.Debug().Str("instance", instanceID).Msg("Stale Disconnected event dropped — client already reconnected")
+			return
+		}
+		mi.setStatus(engine.StatusDisconnected)
 		e.dispatch(engine.Event{
 			Type:       engine.EventInstanceDisconnected,
 			InstanceID: instanceID,

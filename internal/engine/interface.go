@@ -66,7 +66,9 @@ type Engine interface {
 	SendMedia(ctx context.Context, instanceID, to string, media MediaPayload, opts ...SendOptions) (SentMessage, error)
 
 	// SendReaction adds an emoji reaction to an existing message.
-	SendReaction(ctx context.Context, instanceID, to, messageID, emoji string) error
+	// fromMe must be true when reacting to a message sent by this instance;
+	// false when reacting to a message received from a contact.
+	SendReaction(ctx context.Context, instanceID, to, messageID, emoji string, fromMe bool) error
 
 	// RevokeMessage deletes a previously sent message for everyone.
 	RevokeMessage(ctx context.Context, instanceID, to, messageID string) error

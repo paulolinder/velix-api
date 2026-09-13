@@ -54,8 +54,8 @@ func (s *Service) SendMedia(ctx context.Context, instanceID, to string, sendAt *
 }
 
 // SendReaction proxies to the engine (reactions are ephemeral, not persisted).
-func (s *Service) SendReaction(ctx context.Context, instanceID, to, messageID, reaction string) error {
-	return s.engine.SendReaction(ctx, instanceID, to, messageID, reaction)
+func (s *Service) SendReaction(ctx context.Context, instanceID, to, messageID, reaction string, fromMe bool) error {
+	return s.engine.SendReaction(ctx, instanceID, to, messageID, reaction, fromMe)
 }
 
 // RevokeMessage deletes a sent message for everyone and updates its status.

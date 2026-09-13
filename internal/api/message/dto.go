@@ -50,6 +50,7 @@ type SendReactionRequest struct {
 	To        string `json:"to"`
 	MessageID string `json:"message_id"`
 	Reaction  string `json:"reaction"` // emoji or "" to remove
+	FromMe    bool   `json:"from_me"`  // true when reacting to a message sent by this instance
 }
 
 // RevokeRequest is the body for DELETE /v1/instances/{id}/messages/{msgID}.

@@ -149,7 +149,7 @@ func (e *Engine) SendMedia(ctx context.Context, instanceID, to string, payload e
 // SendReaction
 // ---------------------------------------------------------------------------
 
-func (e *Engine) SendReaction(ctx context.Context, instanceID, to, messageID, reaction string) error {
+func (e *Engine) SendReaction(ctx context.Context, instanceID, to, messageID, reaction string, fromMe bool) error {
 	mi, err := e.getInstance(instanceID)
 	if err != nil {
 		return err
@@ -164,7 +164,7 @@ func (e *Engine) SendReaction(ctx context.Context, instanceID, to, messageID, re
 		ReactionMessage: &waProto.ReactionMessage{
 			Key: &waCommon.MessageKey{
 				RemoteJID: proto.String(jid.String()),
-				FromMe:    proto.Bool(false),
+				FromMe:    proto.Bool(fromMe),
 				ID:        proto.String(messageID),
 			},
 			Text:              proto.String(reaction),

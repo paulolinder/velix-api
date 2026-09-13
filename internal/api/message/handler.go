@@ -223,7 +223,7 @@ func (h *Handler) SendReaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.svc.SendReaction(r.Context(), instanceID, req.To, req.MessageID, req.Reaction); err != nil {
+	if err := h.svc.SendReaction(r.Context(), instanceID, req.To, req.MessageID, req.Reaction, req.FromMe); err != nil {
 		apipkg.LogAndFail(w, r, err, "send reaction")
 		return
 	}

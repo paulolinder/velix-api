@@ -20,7 +20,19 @@ import (
 
 // handleWAEvent receives every raw WhatsMeow event, translates it to our engine.Event
 // type, updates managed instance status, and dispatches to all subscribers.
+// A top-level recover() prevents a nil-pointer or other panic from killing
+// whatsmeow's internal event goroutine — which would silently stop all event
+// delivery for this instance without disconnecting the underlying WebSocket.
 func (e *Engine) handleWAEvent(instanceID string, mi *managedInstance, evt any) {
+	defer func() {
+		if r := recover(); r != nil {
+			e.log.Error().
+				Str("instance", instanceID).
+				Interface("panic", r).
+				Msg("panic in WA event handler — recovered")
+		}
+	}()
+
 	now := time.Now()
 
 	switch v := evt.(type) {
@@ -69,6 +81,11 @@ func (e *Engine) handleWAEvent(instanceID string, mi *managedInstance, evt any) 
 		// with "invalid use of deleted device". The goroutine avoids deadlocking
 		// on whatsmeow's own event loop.
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					e.log.Error().Str("instance", instanceID).Interface("panic", r).Msg("panic in reinitClient goroutine — recovered")
+				}
+			}()
 			if err := e.reinitClient(instanceID, mi); err != nil {
 				e.log.Error().Err(err).Str("instance", instanceID).Msg("Failed to reinit client after logout")
 			}
@@ -397,6 +414,15 @@ func applyContextInfo(ctx *waProto.ContextInfo, p *engine.MessagePayload) {
 // storage, then dispatches the message event with the local path and URL filled in.
 // Runs in its own goroutine — does NOT block whatsmeow's event loop.
 func (e *Engine) downloadMediaAndDispatch(instanceID string, mi *managedInstance, msg *waProto.Message, payload *engine.MessagePayload, ts time.Time) {
+	defer func() {
+		if r := recover(); r != nil {
+			e.log.Error().
+				Str("instance", instanceID).
+				Str("msg_id", payload.ID).
+				Interface("panic", r).
+				Msg("panic in downloadMediaAndDispatch — recovered")
+		}
+	}()
 	if e.cfg.MediaStorePath != "" {
 		ctx, cancel := context.WithTimeout(e.ctx, 60*time.Second)
 		defer cancel()

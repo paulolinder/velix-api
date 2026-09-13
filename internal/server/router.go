@@ -21,6 +21,7 @@ import (
 	instanceapi "velix/internal/api/instance"
 	mediaapi    "velix/internal/api/media"
 	messageapi  "velix/internal/api/message"
+	userapi     "velix/internal/api/user"
 	wsapi       "velix/internal/api/ws"
 	"velix/internal/domain/auth"
 	"velix/internal/metrics"
@@ -165,6 +166,12 @@ func NewRouter(deps *Deps) http.Handler {
 					r.Mount("/contacts", contactapi.Routes(deps.Engine))
 					r.Mount("/groups", groupapi.Routes(deps.Engine))
 				})
+			})
+
+			// User management — admin-only, never toggleable via permissions.
+			r.Route("/users", func(r chi.Router) {
+				r.Use(middleware.RequireRole(auth.RoleAdmin))
+				r.Mount("/", userapi.Routes(deps.AuthService))
 			})
 
 			// Audit log queries.

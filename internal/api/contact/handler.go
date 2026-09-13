@@ -19,8 +19,11 @@ func Routes(eng engine.Engine) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequirePermission(auth.PermContactsManage))
 	r.Post("/check", checkHandler(eng))
+	r.Get("/blocklist", blocklistHandler(eng))
 	r.Get("/{jid}", infoHandler(eng))
 	r.Get("/{jid}/picture", pictureHandler(eng))
+	r.Post("/{jid}/block", blockHandler(eng))
+	r.Delete("/{jid}/block", unblockHandler(eng))
 	return r
 }
 
@@ -66,6 +69,49 @@ func infoHandler(eng engine.Engine) http.HandlerFunc {
 		}
 
 		apipkg.WriteJSON(w, r, http.StatusOK, info)
+	}
+}
+
+// blocklistHandler handles GET /v1/instances/{instanceID}/contacts/blocklist.
+func blocklistHandler(eng engine.Engine) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		instanceID := apipkg.Param(r, "instanceID")
+
+		jids, err := eng.GetBlocklist(r.Context(), instanceID)
+		if err != nil {
+			apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeInternal, err.Error()))
+			return
+		}
+
+		apipkg.WriteJSON(w, r, http.StatusOK, map[string][]string{"jids": jids})
+	}
+}
+
+// blockHandler handles POST /v1/instances/{instanceID}/contacts/{jid}/block.
+func blockHandler(eng engine.Engine) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		instanceID := apipkg.Param(r, "instanceID")
+		jid := strings.ReplaceAll(apipkg.Param(r, "jid"), "%40", "@")
+
+		if err := eng.BlockContact(r.Context(), instanceID, jid); err != nil {
+			apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeInternal, err.Error()))
+			return
+		}
+		apipkg.WriteJSON(w, r, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
+// unblockHandler handles DELETE /v1/instances/{instanceID}/contacts/{jid}/block.
+func unblockHandler(eng engine.Engine) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		instanceID := apipkg.Param(r, "instanceID")
+		jid := strings.ReplaceAll(apipkg.Param(r, "jid"), "%40", "@")
+
+		if err := eng.UnblockContact(r.Context(), instanceID, jid); err != nil {
+			apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeInternal, err.Error()))
+			return
+		}
+		apipkg.WriteJSON(w, r, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
 

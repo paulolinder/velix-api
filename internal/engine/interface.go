@@ -86,6 +86,41 @@ type Engine interface {
 	// SendStatus posts a text, image, or video update to the instance's WhatsApp Status (Story).
 	SendStatus(ctx context.Context, instanceID string, payload StatusPayload) (SentMessage, error)
 
+	// EditMessage edits the text of a previously sent message.
+	EditMessage(ctx context.Context, instanceID, to, messageID, newText string) (SentMessage, error)
+
+	// GetGroupInviteLink returns the invite link for a group.
+	// If reset is true, the old link is revoked and a new one is generated.
+	GetGroupInviteLink(ctx context.Context, instanceID, groupJID string, reset bool) (string, error)
+
+	// JoinGroupWithLink joins a group using an invite link or code.
+	JoinGroupWithLink(ctx context.Context, instanceID, link string) (string, error)
+
+	// SetGroupName updates the name of a group.
+	SetGroupName(ctx context.Context, instanceID, groupJID, name string) error
+
+	// SetGroupDescription updates the description (topic) of a group.
+	SetGroupDescription(ctx context.Context, instanceID, groupJID, description string) error
+
+	// SetGroupPhoto updates the group profile picture.
+	SetGroupPhoto(ctx context.Context, instanceID, groupJID string, photo []byte) error
+
+	// GetBlocklist returns the JIDs of all blocked contacts.
+	GetBlocklist(ctx context.Context, instanceID string) ([]string, error)
+
+	// BlockContact blocks a contact.
+	BlockContact(ctx context.Context, instanceID, jid string) error
+
+	// UnblockContact unblocks a previously blocked contact.
+	UnblockContact(ctx context.Context, instanceID, jid string) error
+
+	// SetDisappearingTimer sets the disappearing message timer for a chat.
+	// seconds: 0=off, 86400=24h, 604800=7d, 7776000=90d
+	SetDisappearingTimer(ctx context.Context, instanceID, chatJID string, seconds int) error
+
+	// SetStatusMessage updates the instance's own "about" / status text.
+	SetStatusMessage(ctx context.Context, instanceID, status string) error
+
 	// --- Contacts ---
 
 	// GetContacts returns all locally cached contacts for an instance.

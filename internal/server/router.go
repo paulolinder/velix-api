@@ -157,6 +157,7 @@ func NewRouter(deps *Deps) http.Handler {
 						r.Mount("/settings", instanceapi.SettingsRoutes(deps.InstanceService))
 						r.Post("/presence", instanceapi.PresenceHandler(deps.InstanceService))
 						r.Patch("/profile", instanceapi.ProfileHandler(deps.InstanceService))
+						r.Patch("/status-message", instanceapi.StatusMessageHandler(deps.InstanceService))
 
 						// Chatwoot history sync.
 						chatwootSync := chatwootapi.NewSyncHandler(deps.ChatwootService)

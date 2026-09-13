@@ -3,6 +3,7 @@ package waengine
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
@@ -153,6 +154,76 @@ func toParticipantChange(action string) (whatsmeow.ParticipantChange, error) {
 	default:
 		return "", fmt.Errorf("unknown participant action %q: must be add|remove|promote|demote", action)
 	}
+}
+
+func (e *Engine) GetGroupInviteLink(ctx context.Context, instanceID, groupJID string, reset bool) (string, error) {
+	mi, err := e.getInstance(instanceID)
+	if err != nil {
+		return "", err
+	}
+	jid, err := parseGroupJID(groupJID)
+	if err != nil {
+		return "", fmt.Errorf("invalid group JID %q: %w", groupJID, err)
+	}
+	link, err := mi.client.GetGroupInviteLink(ctx, jid, reset)
+	if err != nil {
+		return "", fmt.Errorf("get invite link: %w", err)
+	}
+	return link, nil
+}
+
+func (e *Engine) JoinGroupWithLink(ctx context.Context, instanceID, link string) (string, error) {
+	mi, err := e.getInstance(instanceID)
+	if err != nil {
+		return "", err
+	}
+	// Accept full URL (https://chat.whatsapp.com/CODE) or bare code.
+	code := link
+	if idx := strings.LastIndex(link, "/"); idx >= 0 {
+		code = link[idx+1:]
+	}
+	groupJID, err := mi.client.JoinGroupWithLink(ctx, code)
+	if err != nil {
+		return "", fmt.Errorf("join group: %w", err)
+	}
+	return groupJID.ToNonAD().String(), nil
+}
+
+func (e *Engine) SetGroupName(ctx context.Context, instanceID, groupJID, name string) error {
+	mi, err := e.getInstance(instanceID)
+	if err != nil {
+		return err
+	}
+	jid, err := parseGroupJID(groupJID)
+	if err != nil {
+		return fmt.Errorf("invalid group JID %q: %w", groupJID, err)
+	}
+	return mi.client.SetGroupName(ctx, jid, name)
+}
+
+func (e *Engine) SetGroupDescription(ctx context.Context, instanceID, groupJID, description string) error {
+	mi, err := e.getInstance(instanceID)
+	if err != nil {
+		return err
+	}
+	jid, err := parseGroupJID(groupJID)
+	if err != nil {
+		return fmt.Errorf("invalid group JID %q: %w", groupJID, err)
+	}
+	return mi.client.SetGroupDescription(ctx, jid, description)
+}
+
+func (e *Engine) SetGroupPhoto(ctx context.Context, instanceID, groupJID string, photo []byte) error {
+	mi, err := e.getInstance(instanceID)
+	if err != nil {
+		return err
+	}
+	jid, err := parseGroupJID(groupJID)
+	if err != nil {
+		return fmt.Errorf("invalid group JID %q: %w", groupJID, err)
+	}
+	_, err = mi.client.SetGroupPhoto(ctx, jid, photo)
+	return err
 }
 
 func mapGroupInfo(g *types.GroupInfo) engine.GroupInfo {

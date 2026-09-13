@@ -92,6 +92,19 @@ type SendContactRequest struct {
 	Contacts []ContactCardRequest `json:"contacts"`
 }
 
+// EditMessageRequest is the body for POST /messages/edit.
+type EditMessageRequest struct {
+	To        string `json:"to"`
+	MessageID string `json:"message_id"`
+	Text      string `json:"text"`
+}
+
+// SetDisappearingTimerRequest is the body for POST /messages/disappearing.
+type SetDisappearingTimerRequest struct {
+	Chat    string `json:"chat"`    // JID (user or group)
+	Seconds int    `json:"seconds"` // 0=off 86400=24h 604800=7d 7776000=90d
+}
+
 // SendStatusRequest is the body for POST /messages/status.
 // Type must be "text", "image", or "video".
 // For "text": Caption is the text, BackgroundColor is an optional hex color (e.g. "#FF0000").

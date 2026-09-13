@@ -351,6 +351,14 @@ func (s *Service) SetPresence(ctx context.Context, workspaceID, instanceID, to, 
 	return s.engine.SetPresence(ctx, instanceID, to, presenceType)
 }
 
+// SetStatusMessage updates the instance's own "about" text.
+func (s *Service) SetStatusMessage(ctx context.Context, workspaceID, instanceID, status string) error {
+	if _, err := s.Get(ctx, workspaceID, instanceID); err != nil {
+		return err
+	}
+	return s.engine.SetStatusMessage(ctx, instanceID, status)
+}
+
 // UpdateProfile updates the instance's display name and/or profile photo.
 func (s *Service) UpdateProfile(ctx context.Context, workspaceID, instanceID, name string, photoData []byte) error {
 	if _, err := s.Get(ctx, workspaceID, instanceID); err != nil {

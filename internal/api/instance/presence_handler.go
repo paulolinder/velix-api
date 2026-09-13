@@ -48,6 +48,30 @@ func PresenceHandler(svc *instance.Service) http.HandlerFunc {
 	}
 }
 
+// StatusMessageRequest is the body for PATCH /v1/instances/{instanceID}/status-message.
+type StatusMessageRequest struct {
+	Status string `json:"status"`
+}
+
+// StatusMessageHandler returns an http.HandlerFunc for PATCH /status-message.
+func StatusMessageHandler(svc *instance.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		instanceID := apipkg.Param(r, "instanceID")
+		wsID := apipkg.WorkspaceID(r)
+
+		var req StatusMessageRequest
+		if !apipkg.DecodeJSON(w, r, &req) {
+			return
+		}
+
+		if err := svc.SetStatusMessage(r.Context(), wsID, instanceID, req.Status); err != nil {
+			apipkg.LogAndFail(w, r, err, "set status message")
+			return
+		}
+		apipkg.WriteJSON(w, r, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
 // ProfileHandler returns an http.HandlerFunc for PATCH /profile.
 func ProfileHandler(svc *instance.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

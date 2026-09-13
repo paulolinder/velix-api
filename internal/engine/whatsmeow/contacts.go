@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"go.mau.fi/whatsmeow/types"
+	waevents "go.mau.fi/whatsmeow/types/events"
 
 	"velix/internal/engine"
 )
@@ -98,4 +99,46 @@ func (e *Engine) GetContactInfo(ctx context.Context, instanceID, jid string) (en
 		About:        status,
 		PictureURL:   picURL,
 	}, nil
+}
+
+func (e *Engine) GetBlocklist(ctx context.Context, instanceID string) ([]string, error) {
+	mi, err := e.getInstance(instanceID)
+	if err != nil {
+		return nil, err
+	}
+	bl, err := mi.client.GetBlocklist(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get blocklist: %w", err)
+	}
+	jids := make([]string, len(bl.JIDs))
+	for i, j := range bl.JIDs {
+		jids[i] = j.ToNonAD().String()
+	}
+	return jids, nil
+}
+
+func (e *Engine) BlockContact(ctx context.Context, instanceID, jid string) error {
+	mi, err := e.getInstance(instanceID)
+	if err != nil {
+		return err
+	}
+	parsed, err := parseJID(jid)
+	if err != nil {
+		return fmt.Errorf("invalid JID %q: %w", jid, err)
+	}
+	_, err = mi.client.UpdateBlocklist(ctx, parsed, waevents.BlocklistChangeActionBlock)
+	return err
+}
+
+func (e *Engine) UnblockContact(ctx context.Context, instanceID, jid string) error {
+	mi, err := e.getInstance(instanceID)
+	if err != nil {
+		return err
+	}
+	parsed, err := parseJID(jid)
+	if err != nil {
+		return fmt.Errorf("invalid JID %q: %w", jid, err)
+	}
+	_, err = mi.client.UpdateBlocklist(ctx, parsed, waevents.BlocklistChangeActionUnblock)
+	return err
 }

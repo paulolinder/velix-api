@@ -235,6 +235,40 @@ func parseJID(s string) (types.JID, error) {
 	return types.ParseJID(s)
 }
 
+// ---------------------------------------------------------------------------
+// EditMessage
+// ---------------------------------------------------------------------------
+
+func (e *Engine) EditMessage(ctx context.Context, instanceID, to, messageID, newText string) (engine.SentMessage, error) {
+	mi, err := e.getInstance(instanceID)
+	if err != nil {
+		return engine.SentMessage{}, err
+	}
+	if mi.getStatus() == engine.StatusBanned {
+		return engine.SentMessage{}, fmt.Errorf("instance is banned — cannot send messages")
+	}
+
+	jid, err := parseJID(to)
+	if err != nil {
+		return engine.SentMessage{}, fmt.Errorf("invalid JID %q: %w", to, err)
+	}
+
+	if err := waitForRateLimit(ctx, mi); err != nil {
+		return engine.SentMessage{}, fmt.Errorf("rate limit: %w", err)
+	}
+
+	editMsg := mi.client.BuildEdit(jid, types.MessageID(messageID), &waProto.Message{
+		Conversation: proto.String(newText),
+	})
+
+	resp, err := mi.client.SendMessage(ctx, jid, editMsg)
+	if err != nil {
+		return engine.SentMessage{}, fmt.Errorf("edit message: %w", err)
+	}
+	e.markAPISent(resp.ID)
+	return engine.SentMessage{ID: resp.ID, Timestamp: resp.Timestamp}, nil
+}
+
 func mergeOpts(opts []engine.SendOptions) engine.SendOptions {
 	if len(opts) > 0 {
 		return opts[0]

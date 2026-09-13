@@ -45,6 +45,8 @@ func Routes(svc *message.Service) http.Handler {
 	r.With(send).Post("/poll", h.SendPoll)
 	r.With(send).Post("/contact", h.SendContact)
 	r.With(send).Post("/status", h.SendStatus)
+	r.With(send).Post("/edit", h.EditMessage)
+	r.With(send).Post("/disappearing", h.SetDisappearingTimer)
 
 	r.With(view).Get("/", h.ListByChat)
 	r.With(schedule).Get("/scheduled", h.ListScheduled)
@@ -360,6 +362,48 @@ func (h *Handler) SendContact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	apipkg.WriteJSON(w, r, http.StatusCreated, fromDomain(msg))
+}
+
+// EditMessage handles POST /v1/instances/{instanceID}/messages/edit.
+func (h *Handler) EditMessage(w http.ResponseWriter, r *http.Request) {
+	instanceID := apipkg.Param(r, "instanceID")
+	var req EditMessageRequest
+	if !apipkg.DecodeJSON(w, r, &req) {
+		return
+	}
+	if !apipkg.RequireFields(w, r, map[string]string{
+		"to": req.To, "message_id": req.MessageID, "text": req.Text,
+	}) {
+		return
+	}
+	sent, err := h.svc.EditMessage(r.Context(), instanceID, req.To, req.MessageID, req.Text)
+	if err != nil {
+		apipkg.LogAndFail(w, r, err, "edit message")
+		return
+	}
+	apipkg.WriteJSON(w, r, http.StatusOK, sent)
+}
+
+// SetDisappearingTimer handles POST /v1/instances/{instanceID}/messages/disappearing.
+func (h *Handler) SetDisappearingTimer(w http.ResponseWriter, r *http.Request) {
+	instanceID := apipkg.Param(r, "instanceID")
+	var req SetDisappearingTimerRequest
+	if !apipkg.DecodeJSON(w, r, &req) {
+		return
+	}
+	if req.Chat == "" {
+		apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeValidation, "chat is required"))
+		return
+	}
+	if req.Seconds < 0 {
+		apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeValidation, "seconds must be >= 0 (0 = off)"))
+		return
+	}
+	if err := h.svc.SetDisappearingTimer(r.Context(), instanceID, req.Chat, req.Seconds); err != nil {
+		apipkg.LogAndFail(w, r, err, "set disappearing timer")
+		return
+	}
+	apipkg.WriteJSON(w, r, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 // SendStatus handles POST /v1/instances/{instanceID}/messages/status.

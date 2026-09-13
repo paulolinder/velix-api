@@ -235,6 +235,16 @@ func (s *Service) SendContact(ctx context.Context, instanceID, to string, contac
 	return msg, nil
 }
 
+// EditMessage edits the text of a previously sent message.
+func (s *Service) EditMessage(ctx context.Context, instanceID, to, messageID, newText string) (engine.SentMessage, error) {
+	return s.engine.EditMessage(ctx, instanceID, to, messageID, newText)
+}
+
+// SetDisappearingTimer sets the disappearing message timer for a chat.
+func (s *Service) SetDisappearingTimer(ctx context.Context, instanceID, chat string, seconds int) error {
+	return s.engine.SetDisappearingTimer(ctx, instanceID, chat, seconds)
+}
+
 // SendStatusUpdate posts a WhatsApp Status (Story) update for an instance.
 // Status updates are not persisted as chat messages.
 func (s *Service) SendStatusUpdate(ctx context.Context, instanceID string, payload engine.StatusPayload) (engine.SentMessage, error) {

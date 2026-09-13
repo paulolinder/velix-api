@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/proto/waE2E"
@@ -251,6 +252,39 @@ func (e *Engine) SendContact(ctx context.Context, instanceID, to string, contact
 	}
 	e.markAPISent(resp.ID)
 	return engine.SentMessage{ID: resp.ID, Timestamp: resp.Timestamp}, nil
+}
+
+// ---------------------------------------------------------------------------
+// SetDisappearingTimer
+// ---------------------------------------------------------------------------
+
+func (e *Engine) SetDisappearingTimer(ctx context.Context, instanceID, chatJID string, seconds int) error {
+	mi, err := e.getInstance(instanceID)
+	if err != nil {
+		return err
+	}
+	jid, err := parseJID(chatJID)
+	if err != nil {
+		// Try as group JID
+		jid, err = parseGroupJID(chatJID)
+		if err != nil {
+			return fmt.Errorf("invalid JID %q: %w", chatJID, err)
+		}
+	}
+	duration := time.Duration(seconds) * time.Second
+	return mi.client.SetDisappearingTimer(ctx, jid, duration, time.Now())
+}
+
+// ---------------------------------------------------------------------------
+// SetStatusMessage
+// ---------------------------------------------------------------------------
+
+func (e *Engine) SetStatusMessage(ctx context.Context, instanceID, status string) error {
+	mi, err := e.getInstance(instanceID)
+	if err != nil {
+		return err
+	}
+	return mi.client.SetStatusMessage(ctx, types.SetStatusInput{Text: &status})
 }
 
 // ---------------------------------------------------------------------------

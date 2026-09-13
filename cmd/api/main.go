@@ -16,7 +16,6 @@ import (
 	"velix/internal/config"
 	"velix/internal/domain/auth"
 	"velix/internal/domain/media"
-	"velix/internal/license"
 	"velix/internal/domain/chatwoot"
 	"velix/internal/domain/instance"
 	"velix/internal/domain/message"
@@ -56,36 +55,6 @@ func main() {
 
 	ctx := context.Background()
 
-	// 2b. Validate license key.
-	lic, licErr := license.Validate(cfg.License.Key)
-	if licErr != nil {
-		appLog.Warn().Err(licErr).Msg("License validation failed — running in trial/free tier")
-	} else {
-		appLog.Info().
-			Str("plan", lic.Plan()).
-			Int("max_instances", lic.MaxInstances()).
-			Str("email", lic.Claims.Email).
-			Msg("License validated")
-	}
-
-	// 2c. Init trial tracking (creates /data/.trial on first run).
-	trial, trialErr := license.InitTrial(cfg.Engine.StorePath)
-	if trialErr != nil {
-		appLog.Warn().Err(trialErr).Msg("Could not init trial — defaulting to expired")
-	}
-	trialExpired := trial.IsExpired()
-	if lic == nil || !lic.Valid {
-		if trialExpired {
-			appLog.Warn().
-				Int("trial_days", license.TrialDays).
-				Msg("Trial expired — set LICENSE_KEY to continue using Velix API")
-		} else {
-			appLog.Info().
-				Int("days_remaining", trial.DaysRemaining()).
-				Msg("Running in trial mode")
-		}
-	}
-
 	// 3. Run database migrations (embedded SQL, safe to run on every startup).
 	appLog.Info().Msg("Running database migrations...")
 	if err := database.RunMigrations(cfg.Database.URL); err != nil {
@@ -113,20 +82,6 @@ func main() {
 	}
 
 	// 6. Boot the WhatsApp engine with a cancellable context.
-	// Priority: valid license > trial active (2 instances) > trial expired (0 = blocked).
-	if lic != nil && lic.Valid {
-		if lic.MaxInstances() > 0 {
-			cfg.Engine.MaxInstances = lic.MaxInstances()
-		}
-	} else {
-		// No valid license — check trial.
-		if trialExpired {
-			cfg.Engine.MaxInstances = 0 // trial expired: block all instance creation
-		} else {
-			cfg.Engine.MaxInstances = 2 // trial active: 2 instances
-		}
-	}
-
 	engineCtx, engineCancel := context.WithCancel(ctx)
 	eng := waengine.New(cfg.Engine)
 	if err := eng.Start(engineCtx); err != nil {
@@ -168,12 +123,7 @@ func main() {
 	defer workerCancel()
 	messageSvc.StartSchedulerWorker(workerCtx)
 
-	// 9b. Start license phone-home (checks revocation every 24h).
-	if lic != nil && lic.Valid {
-		lic.StartPhoneHome(workerCtx, cfg.License.Key)
-	}
-
-	// 9c. Start media cleanup worker (deletes files older than 7 days, runs hourly).
+	// 9b. Start media cleanup worker (deletes files older than 7 days, runs hourly).
 	media.StartCleanupWorker(workerCtx, cfg.Media.StoragePath, 7*24*time.Hour)
 
 	// 10. Build router and start HTTP server.
@@ -188,8 +138,6 @@ func main() {
 		MediaStorePath:        cfg.Media.StoragePath,
 		Redis:                 rdb,
 		ChatwootWebhookSecret: cfg.Integrations.ChatwootWebhookSecret,
-		License:               lic,
-		Trial:                 trial,
 		RegistrationEnabled:   cfg.Auth.RegistrationEnabled,
 	}
 	router := server.NewRouter(deps)

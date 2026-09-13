@@ -18,7 +18,6 @@ type Config struct {
 	Redis        RedisConfig
 	Auth         AuthConfig
 	Media        MediaConfig
-	License      LicenseConfig
 	Engine       EngineConfig
 	Integrations IntegrationsConfig
 }
@@ -84,18 +83,13 @@ type IntegrationsConfig struct {
 	ChatwootWebhookSecret string
 }
 
-// LicenseConfig holds license key settings.
-type LicenseConfig struct {
-	Key string // LICENSE_KEY — signed JWT from the Velix license server
-}
-
 // EngineConfig holds WhatsApp engine settings.
 type EngineConfig struct {
 	StorePath      string // base path for per-instance WA SQLite stores
 	MediaStorePath string // directory where incoming media files are saved
 	AutoReconnect  bool
 	QRTimeout      time.Duration
-	MaxInstances   int
+	MaxInstances   int // operational cap on instances per workspace (0 = unlimited)
 }
 
 // Load reads configuration from environment variables and validates it.
@@ -136,9 +130,6 @@ func Load() (*Config, error) {
 		Media: MediaConfig{
 			StoragePath: env("MEDIA_STORAGE_PATH", "./data/media"),
 			MaxFileSize: envInt64("MEDIA_MAX_FILE_SIZE", 64<<20), // 64 MB
-		},
-		License: LicenseConfig{
-			Key: os.Getenv("LICENSE_KEY"),
 		},
 		Integrations: IntegrationsConfig{
 			ChatwootWebhookSecret: os.Getenv("CHATWOOT_WEBHOOK_SECRET"),

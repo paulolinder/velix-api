@@ -67,9 +67,6 @@ REDIS_PASSWORD=SUA_SENHA_REDIS
 # IMPORTANTE: gere com: openssl rand -base64 48
 JWT_SECRET=GERE_UMA_STRING_ALEATORIA_DE_48_CHARS
 
-# ── Licença (opcional — sem ela, funciona com max 2 instâncias) ──
-# LICENSE_KEY=eyJhbGci...
-
 # ── Mídia ────────────────────────────────────
 MEDIA_STORAGE_PATH=/data/media
 MEDIA_MAX_FILE_SIZE=67108864
@@ -230,11 +227,10 @@ docker compose up -d
 | `DATABASE_URL` | Sim | — | Connection string PostgreSQL |
 | `REDIS_URL` | Sim | — | Connection string Redis |
 | `JWT_SECRET` | Sim | — | Secret para assinar JWTs (min 32 chars) |
-| `LICENSE_KEY` | Não | — | Licença Velix (sem ela: max 2 instâncias) |
 | `HTTP_PORT` | Não | 8080 | Porta HTTP |
 | `APP_ENV` | Não | development | development / production |
 | `LOG_LEVEL` | Não | info | debug / info / warn / error |
-| `ENGINE_MAX_INSTANCES` | Não | 200 | Max instâncias (override pela licença) |
+| `ENGINE_MAX_INSTANCES` | Não | 200 | Cap operacional de instâncias por workspace (0 = sem limite) |
 | `ENGINE_STORE_PATH` | Não | ./data/instances | Caminho dos SQLite do WhatsApp |
 | `MEDIA_STORAGE_PATH` | Não | ./data/media | Caminho das mídias recebidas |
 | `MEDIA_MAX_FILE_SIZE` | Não | 64 MB | Tamanho máximo de upload |

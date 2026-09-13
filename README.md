@@ -40,7 +40,6 @@ Code ou pareamento por código.
 - **Multi-tenant** — workspaces isolados, autenticação por JWT ou API Key, controle de acesso por papel (admin/developer)
 - **Auditoria** — log de ações administrativas
 - **Painel admin** — UI web embutida em `/admin`
-- **Planos e licenciamento** — modo trial gratuito (14 dias, 2 instâncias) ou licença paga com limites por plano
 
 ## Arquitetura
 
@@ -136,21 +135,8 @@ Principais variáveis de ambiente (lista completa em [`.env.example`](.env.examp
 | `REDIS_URL` | Sim | Connection string do Redis |
 | `JWT_SECRET` | Sim | Secret para assinar JWTs (mín. 32 chars) |
 | `HTTP_PORT` | Não | Porta HTTP (padrão 8080) |
-| `LICENSE_KEY` | Não | Licença Velix — sem ela, roda em trial (14 dias, máx. 2 instâncias) |
-| `ENGINE_MAX_INSTANCES` | Não | Limite de instâncias (sobrescrito pela licença) |
+| `ENGINE_MAX_INSTANCES` | Não | Cap operacional de instâncias por workspace (padrão 200, 0 = sem limite) |
 | `CORS_ALLOWED_ORIGINS` | Não | Origens permitidas, separadas por vírgula |
-
-## Licenciamento
-
-Sem `LICENSE_KEY`, a API roda em **modo trial** (14 dias, até 2 instâncias). Licenças são JWTs assinados (Ed25519) que definem plano e limites — veja `cmd/license-gen` para geração (requer a chave privada, que só existe no servidor de licenças).
-
-| Plano | Instâncias |
-|---|---|
-| Free / Trial | 2 |
-| Starter | 10 |
-| Pro | 50 |
-| Business | 200 |
-| Enterprise | ilimitado |
 
 ## Contribuindo
 

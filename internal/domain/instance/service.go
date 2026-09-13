@@ -14,7 +14,7 @@ import (
 type Service struct {
 	repo         Repository
 	engine       engine.Engine
-	maxInstances int // per-workspace limit (0 = unlimited, set by license)
+	maxInstances int // per-workspace operational cap (0 = unlimited, from ENGINE_MAX_INSTANCES)
 	log          zerolog.Logger
 }
 
@@ -367,7 +367,7 @@ func (s *Service) GetProfilePicture(ctx context.Context, workspaceID, instanceID
 	return s.engine.GetProfilePicture(ctx, instanceID, jid)
 }
 
-// maxInstancesPerWorkspace returns the per-workspace limit set by the license.
+// maxInstancesPerWorkspace returns the operator-configured per-workspace cap.
 func (s *Service) maxInstancesPerWorkspace() int {
 	if s.maxInstances <= 0 {
 		return 999999 // unlimited

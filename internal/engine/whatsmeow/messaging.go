@@ -27,10 +27,10 @@ func waitForRateLimit(ctx context.Context, mi *managedInstance) error {
 // This mimics human behavior and helps avoid WhatsApp anti-spam detection.
 func (e *Engine) simulateTyping(ctx context.Context, mi *managedInstance, jid types.JID) {
 	// Send presence "available" so the recipient sees us online.
-	_ = mi.client.SendPresence(ctx, types.PresenceAvailable)
+	_ = mi.getClient().SendPresence(ctx, types.PresenceAvailable)
 
 	// Send "composing" indicator.
-	_ = mi.client.SendChatPresence(ctx, jid, types.ChatPresenceComposing, types.ChatPresenceMediaText)
+	_ = mi.getClient().SendChatPresence(ctx, jid, types.ChatPresenceComposing, types.ChatPresenceMediaText)
 
 	// Random delay between 1–3 seconds to simulate typing.
 	delay := time.Duration(1000+rand.Intn(2000)) * time.Millisecond
@@ -41,7 +41,7 @@ func (e *Engine) simulateTyping(ctx context.Context, mi *managedInstance, jid ty
 	}
 
 	// Clear composing state.
-	_ = mi.client.SendChatPresence(ctx, jid, types.ChatPresencePaused, types.ChatPresenceMediaText)
+	_ = mi.getClient().SendChatPresence(ctx, jid, types.ChatPresencePaused, types.ChatPresenceMediaText)
 }
 
 // ---------------------------------------------------------------------------
@@ -87,7 +87,7 @@ func (e *Engine) SendText(ctx context.Context, instanceID, to, text string, opts
 	// Simulate typing to avoid anti-spam detection.
 	e.simulateTyping(ctx, mi, jid)
 
-	resp, err := mi.client.SendMessage(ctx, jid, msg)
+	resp, err := mi.getClient().SendMessage(ctx, jid, msg)
 	if err != nil {
 		return engine.SentMessage{}, fmt.Errorf("send text: %w", err)
 	}
@@ -123,7 +123,7 @@ func (e *Engine) SendMedia(ctx context.Context, instanceID, to string, payload e
 		return engine.SentMessage{}, err
 	}
 
-	uploaded, err := mi.client.Upload(ctx, payload.Data, waType)
+	uploaded, err := mi.getClient().Upload(ctx, payload.Data, waType)
 	if err != nil {
 		return engine.SentMessage{}, fmt.Errorf("upload %s: %w", payload.Type, err)
 	}
@@ -136,7 +136,7 @@ func (e *Engine) SendMedia(ctx context.Context, instanceID, to string, payload e
 	// Simulate typing to avoid anti-spam detection.
 	e.simulateTyping(ctx, mi, jid)
 
-	resp, err := mi.client.SendMessage(ctx, jid, msg)
+	resp, err := mi.getClient().SendMessage(ctx, jid, msg)
 	if err != nil {
 		return engine.SentMessage{}, fmt.Errorf("send media: %w", err)
 	}
@@ -172,7 +172,7 @@ func (e *Engine) SendReaction(ctx context.Context, instanceID, to, messageID, re
 		},
 	}
 
-	resp, err := mi.client.SendMessage(ctx, jid, msg)
+	resp, err := mi.getClient().SendMessage(ctx, jid, msg)
 	if err != nil {
 		return err
 	}
@@ -195,8 +195,8 @@ func (e *Engine) RevokeMessage(ctx context.Context, instanceID, to, messageID st
 		return fmt.Errorf("invalid JID %q: %w", to, err)
 	}
 
-	_, err = mi.client.SendMessage(ctx, jid,
-		mi.client.BuildRevoke(jid, types.EmptyJID, types.MessageID(messageID)),
+	_, err = mi.getClient().SendMessage(ctx, jid,
+		mi.getClient().BuildRevoke(jid, types.EmptyJID, types.MessageID(messageID)),
 	)
 	return err
 }
@@ -221,7 +221,7 @@ func (e *Engine) MarkAsRead(ctx context.Context, instanceID, chat string, messag
 		ids[i] = types.MessageID(id)
 	}
 
-	return mi.client.MarkRead(ctx, ids, time.Now(), chatJID, types.EmptyJID)
+	return mi.getClient().MarkRead(ctx, ids, time.Now(), chatJID, types.EmptyJID)
 }
 
 // ---------------------------------------------------------------------------
@@ -257,11 +257,11 @@ func (e *Engine) EditMessage(ctx context.Context, instanceID, to, messageID, new
 		return engine.SentMessage{}, fmt.Errorf("rate limit: %w", err)
 	}
 
-	editMsg := mi.client.BuildEdit(jid, types.MessageID(messageID), &waProto.Message{
+	editMsg := mi.getClient().BuildEdit(jid, types.MessageID(messageID), &waProto.Message{
 		Conversation: proto.String(newText),
 	})
 
-	resp, err := mi.client.SendMessage(ctx, jid, editMsg)
+	resp, err := mi.getClient().SendMessage(ctx, jid, editMsg)
 	if err != nil {
 		return engine.SentMessage{}, fmt.Errorf("edit message: %w", err)
 	}

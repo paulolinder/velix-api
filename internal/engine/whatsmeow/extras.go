@@ -53,7 +53,7 @@ func (e *Engine) SendStatus(ctx context.Context, instanceID string, p engine.Sta
 		}
 
 	case engine.StatusTypeImage:
-		uploaded, err := mi.client.Upload(ctx, p.Data, whatsmeow.MediaImage)
+		uploaded, err := mi.getClient().Upload(ctx, p.Data, whatsmeow.MediaImage)
 		if err != nil {
 			return engine.SentMessage{}, fmt.Errorf("upload image: %w", err)
 		}
@@ -72,7 +72,7 @@ func (e *Engine) SendStatus(ctx context.Context, instanceID string, p engine.Sta
 		}
 
 	case engine.StatusTypeVideo:
-		uploaded, err := mi.client.Upload(ctx, p.Data, whatsmeow.MediaVideo)
+		uploaded, err := mi.getClient().Upload(ctx, p.Data, whatsmeow.MediaVideo)
 		if err != nil {
 			return engine.SentMessage{}, fmt.Errorf("upload video: %w", err)
 		}
@@ -94,7 +94,7 @@ func (e *Engine) SendStatus(ctx context.Context, instanceID string, p engine.Sta
 		return engine.SentMessage{}, fmt.Errorf("unsupported status type %q: must be text, image, or video", p.Type)
 	}
 
-	resp, err := mi.client.SendMessage(ctx, types.StatusBroadcastJID, msg)
+	resp, err := mi.getClient().SendMessage(ctx, types.StatusBroadcastJID, msg)
 	if err != nil {
 		return engine.SentMessage{}, fmt.Errorf("send status: %w", err)
 	}
@@ -133,7 +133,7 @@ func (e *Engine) SendLocation(ctx context.Context, instanceID, to string, lat, l
 		},
 	}
 
-	resp, err := mi.client.SendMessage(ctx, jid, msg)
+	resp, err := mi.getClient().SendMessage(ctx, jid, msg)
 	if err != nil {
 		return engine.SentMessage{}, fmt.Errorf("send location: %w", err)
 	}
@@ -168,9 +168,9 @@ func (e *Engine) SendPoll(ctx context.Context, instanceID, to, question string, 
 		maxAnswers = len(options)
 	}
 
-	msg := mi.client.BuildPollCreation(question, options, maxAnswers)
+	msg := mi.getClient().BuildPollCreation(question, options, maxAnswers)
 
-	resp, err := mi.client.SendMessage(ctx, jid, msg)
+	resp, err := mi.getClient().SendMessage(ctx, jid, msg)
 	if err != nil {
 		return engine.SentMessage{}, fmt.Errorf("send poll: %w", err)
 	}
@@ -246,7 +246,7 @@ func (e *Engine) SendContact(ctx context.Context, instanceID, to string, contact
 		}
 	}
 
-	resp, err := mi.client.SendMessage(ctx, jid, msg)
+	resp, err := mi.getClient().SendMessage(ctx, jid, msg)
 	if err != nil {
 		return engine.SentMessage{}, fmt.Errorf("send contact: %w", err)
 	}
@@ -272,7 +272,7 @@ func (e *Engine) SetDisappearingTimer(ctx context.Context, instanceID, chatJID s
 		}
 	}
 	duration := time.Duration(seconds) * time.Second
-	return mi.client.SetDisappearingTimer(ctx, jid, duration, time.Now())
+	return mi.getClient().SetDisappearingTimer(ctx, jid, duration, time.Now())
 }
 
 // ---------------------------------------------------------------------------
@@ -284,7 +284,7 @@ func (e *Engine) SetStatusMessage(ctx context.Context, instanceID, status string
 	if err != nil {
 		return err
 	}
-	return mi.client.SetStatusMessage(ctx, types.SetStatusInput{Text: &status})
+	return mi.getClient().SetStatusMessage(ctx, types.SetStatusInput{Text: &status})
 }
 
 // ---------------------------------------------------------------------------
@@ -302,7 +302,7 @@ func (e *Engine) GetProfilePicture(ctx context.Context, instanceID, jid string) 
 		return "", fmt.Errorf("invalid JID %q: %w", jid, err)
 	}
 
-	info, err := mi.client.GetProfilePictureInfo(ctx, parsedJID, &whatsmeow.GetProfilePictureParams{Preview: false})
+	info, err := mi.getClient().GetProfilePictureInfo(ctx, parsedJID, &whatsmeow.GetProfilePictureParams{Preview: false})
 	if err != nil {
 		return "", nil
 	}
@@ -324,9 +324,9 @@ func (e *Engine) SetPresence(ctx context.Context, instanceID, to, presenceType s
 
 	switch presenceType {
 	case "available":
-		return mi.client.SendPresence(ctx, types.PresenceAvailable)
+		return mi.getClient().SendPresence(ctx, types.PresenceAvailable)
 	case "unavailable":
-		return mi.client.SendPresence(ctx, types.PresenceUnavailable)
+		return mi.getClient().SendPresence(ctx, types.PresenceUnavailable)
 	case "typing", "recording", "paused":
 		chatJID, err := parseJID(to)
 		if err != nil {
@@ -348,7 +348,7 @@ func (e *Engine) SetPresence(ctx context.Context, instanceID, to, presenceType s
 			media = types.ChatPresenceMediaText
 		}
 
-		return mi.client.SendChatPresence(ctx, chatJID, chatPresence, media)
+		return mi.getClient().SendChatPresence(ctx, chatJID, chatPresence, media)
 	default:
 		return fmt.Errorf("unknown presence type %q: must be one of typing, recording, paused, available, unavailable", presenceType)
 	}

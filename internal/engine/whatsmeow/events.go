@@ -29,7 +29,7 @@ func (e *Engine) handleWAEvent(instanceID string, mi *managedInstance, evt any) 
 		mi.setStatus(engine.StatusConnected)
 		// Apply always_online presence after connection.
 		if s := mi.getSettings(); s.AlwaysOnline {
-			_ = mi.client.SendPresence(e.ctx, types.PresenceAvailable)
+			_ = mi.getClient().SendPresence(e.ctx, types.PresenceAvailable)
 		}
 		e.dispatch(engine.Event{
 			Type:       engine.EventInstanceConnected,
@@ -55,6 +55,16 @@ func (e *Engine) handleWAEvent(instanceID string, mi *managedInstance, evt any) 
 			InstanceID: instanceID,
 			Timestamp:  now,
 		})
+		// Reinitialize the client in a goroutine: whatsmeow deleted the device
+		// from SQLite when this event fired, leaving mi.client pointing at a
+		// deleted device. Without reinit, the next GetQRChannel call would fail
+		// with "invalid use of deleted device". The goroutine avoids deadlocking
+		// on whatsmeow's own event loop.
+		go func() {
+			if err := e.reinitClient(instanceID, mi); err != nil {
+				e.log.Error().Err(err).Str("instance", instanceID).Msg("Failed to reinit client after logout")
+			}
+		}()
 
 	case *waevents.PairSuccess:
 		mi.setStatus(engine.StatusConnected)
@@ -72,8 +82,8 @@ func (e *Engine) handleWAEvent(instanceID string, mi *managedInstance, evt any) 
 	case *waevents.TemporaryBan:
 		mi.setStatus(engine.StatusBanned)
 		// Auto-disconnect to prevent further damage.
-		if mi.client.IsConnected() {
-			mi.client.Disconnect()
+		if mi.getClient().IsConnected() {
+			mi.getClient().Disconnect()
 		}
 		e.log.Warn().
 			Str("instance", instanceID).
@@ -89,7 +99,7 @@ func (e *Engine) handleWAEvent(instanceID string, mi *managedInstance, evt any) 
 	case *waevents.CallOffer:
 		// Auto-reject incoming calls if configured.
 		if s := mi.getSettings(); s.RejectCall {
-			_ = mi.client.RejectCall(e.ctx, v.From, v.CallID)
+			_ = mi.getClient().RejectCall(e.ctx, v.From, v.CallID)
 		}
 
 	case *waevents.Message:
@@ -102,7 +112,7 @@ func (e *Engine) handleWAEvent(instanceID string, mi *managedInstance, evt any) 
 
 		// Auto-read incoming messages if configured (never mark own messages as read).
 		if !v.Info.IsFromMe && settings.ReadMessages {
-			_ = mi.client.MarkRead(
+			_ = mi.getClient().MarkRead(
 				e.ctx,
 				[]types.MessageID{v.Info.ID},
 				v.Info.Timestamp,
@@ -111,7 +121,7 @@ func (e *Engine) handleWAEvent(instanceID string, mi *managedInstance, evt any) 
 			)
 		}
 
-		payload := mapMessage(v, e.ctx, mi.client.Store)
+		payload := mapMessage(v, e.ctx, mi.getClient().Store)
 
 		// Determine message source:
 		//   contact — received from a client
@@ -151,7 +161,7 @@ func (e *Engine) handleWAEvent(instanceID string, mi *managedInstance, evt any) 
 		go e.handleHistorySync(instanceID, mi, v)
 
 	case *waevents.Receipt:
-		payload := mapReceipt(v, e.ctx, mi.client.Store)
+		payload := mapReceipt(v, e.ctx, mi.getClient().Store)
 		evtType := engine.EventReceiptDelivered
 		if v.Type == types.ReceiptTypeRead || v.Type == types.ReceiptTypeReadSelf {
 			evtType = engine.EventReceiptRead
@@ -383,7 +393,7 @@ func (e *Engine) downloadMediaAndDispatch(instanceID string, mi *managedInstance
 		ctx, cancel := context.WithTimeout(e.ctx, 60*time.Second)
 		defer cancel()
 
-		data, err := mi.client.DownloadAny(ctx, msg)
+		data, err := mi.getClient().DownloadAny(ctx, msg)
 		if err != nil {
 			e.log.Warn().Err(err).Str("instance", instanceID).
 				Str("msg_id", payload.ID).Msg("Failed to download media from WhatsApp CDN")
@@ -459,7 +469,7 @@ func (e *Engine) handleHistorySync(instanceID string, mi *managedInstance, v *wa
 
 	var msgs []engine.HistorySyncMessage
 
-	store := mi.client.Store
+	store := mi.getClient().Store
 
 	for _, conv := range data.GetConversations() {
 		chatJID := conv.GetID()

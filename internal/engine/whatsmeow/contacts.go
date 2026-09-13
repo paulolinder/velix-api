@@ -18,7 +18,7 @@ func (e *Engine) GetContacts(ctx context.Context, instanceID string) (map[string
 		return nil, err
 	}
 
-	raw, err := mi.client.Store.Contacts.GetAllContacts(ctx)
+	raw, err := mi.getClient().Store.Contacts.GetAllContacts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("GetAllContacts: %w", err)
 	}
@@ -45,7 +45,7 @@ func (e *Engine) IsOnWhatsApp(ctx context.Context, instanceID string, phones []s
 		return nil, err
 	}
 
-	resp, err := mi.client.IsOnWhatsApp(ctx, phones)
+	resp, err := mi.getClient().IsOnWhatsApp(ctx, phones)
 	if err != nil {
 		return nil, fmt.Errorf("IsOnWhatsApp: %w", err)
 	}
@@ -76,11 +76,11 @@ func (e *Engine) GetContactInfo(ctx context.Context, instanceID, jid string) (en
 	}
 
 	// Pull cached contact data from the local store (push name / business name).
-	contact, _ := mi.client.Store.Contacts.GetContact(ctx, parsedJID)
+	contact, _ := mi.getClient().Store.Contacts.GetContact(ctx, parsedJID)
 
 	// Fetch live UserInfo (status, picture ID) — best-effort.
 	var status string
-	if infoMap, err := mi.client.GetUserInfo(ctx, []types.JID{parsedJID}); err == nil {
+	if infoMap, err := mi.getClient().GetUserInfo(ctx, []types.JID{parsedJID}); err == nil {
 		if info, ok := infoMap[parsedJID]; ok {
 			status = info.Status
 		}
@@ -88,7 +88,7 @@ func (e *Engine) GetContactInfo(ctx context.Context, instanceID, jid string) (en
 
 	// Attempt profile picture URL (non-fatal on error).
 	picURL := ""
-	if pic, err := mi.client.GetProfilePictureInfo(ctx, parsedJID, nil); err == nil && pic != nil {
+	if pic, err := mi.getClient().GetProfilePictureInfo(ctx, parsedJID, nil); err == nil && pic != nil {
 		picURL = pic.URL
 	}
 
@@ -106,7 +106,7 @@ func (e *Engine) GetBlocklist(ctx context.Context, instanceID string) ([]string,
 	if err != nil {
 		return nil, err
 	}
-	bl, err := mi.client.GetBlocklist(ctx)
+	bl, err := mi.getClient().GetBlocklist(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get blocklist: %w", err)
 	}
@@ -126,7 +126,7 @@ func (e *Engine) BlockContact(ctx context.Context, instanceID, jid string) error
 	if err != nil {
 		return fmt.Errorf("invalid JID %q: %w", jid, err)
 	}
-	_, err = mi.client.UpdateBlocklist(ctx, parsed, waevents.BlocklistChangeActionBlock)
+	_, err = mi.getClient().UpdateBlocklist(ctx, parsed, waevents.BlocklistChangeActionBlock)
 	return err
 }
 
@@ -139,6 +139,6 @@ func (e *Engine) UnblockContact(ctx context.Context, instanceID, jid string) err
 	if err != nil {
 		return fmt.Errorf("invalid JID %q: %w", jid, err)
 	}
-	_, err = mi.client.UpdateBlocklist(ctx, parsed, waevents.BlocklistChangeActionUnblock)
+	_, err = mi.getClient().UpdateBlocklist(ctx, parsed, waevents.BlocklistChangeActionUnblock)
 	return err
 }

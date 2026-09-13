@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.mau.fi/whatsmeow"
@@ -25,8 +26,9 @@ type humanPauseEntry struct {
 
 // managedInstance wraps a whatsmeow.Client with our status tracking.
 type managedInstance struct {
-	id     string
-	client *whatsmeow.Client
+	id        string
+	clientRef atomic.Pointer[whatsmeow.Client] // accessed via getClient() / Store()
+	container *sqlstore.Container              // kept so reinitClient can create a fresh device
 
 	mu       sync.RWMutex
 	status   engine.InstanceStatus
@@ -39,6 +41,12 @@ type managedInstance struct {
 	// humanPauses tracks which chats are under a human-pause window.
 	// key: chat JID string → expiration time.
 	humanPauses sync.Map
+}
+
+// getClient returns the current whatsmeow client. Always use this instead of
+// accessing clientRef directly so the pointer swap in reinitClient is race-safe.
+func (mi *managedInstance) getClient() *whatsmeow.Client {
+	return mi.clientRef.Load()
 }
 
 func (mi *managedInstance) setStatus(s engine.InstanceStatus) {
@@ -139,10 +147,11 @@ func (e *Engine) CreateInstance(ctx context.Context, instanceID string, opts eng
 
 	mi := &managedInstance{
 		id:         instanceID,
-		client:     client,
+		container:  container,
 		status:     engine.StatusDisconnected,
 		msgLimiter: rate.NewLimiter(rate.Every(4*time.Second), 5), // ~15 msgs/min, burst 5
 	}
+	mi.clientRef.Store(client)
 
 	// Bridge every WA event to our dispatcher.
 	client.AddEventHandler(func(evt any) {
@@ -164,8 +173,8 @@ func (e *Engine) DeleteInstance(_ context.Context, instanceID string) error {
 		return nil // idempotent
 	}
 
-	if mi.client.IsConnected() {
-		mi.client.Disconnect()
+	if mi.getClient().IsConnected() {
+		mi.getClient().Disconnect()
 	}
 
 	delete(e.clients, instanceID)
@@ -191,9 +200,9 @@ func (e *Engine) ApplySettings(_ context.Context, instanceID string, s engine.In
 	mi.mu.Unlock()
 
 	// If connected, apply presence immediately.
-	if mi.client.IsConnected() {
+	if mi.getClient().IsConnected() {
 		if s.AlwaysOnline {
-			_ = mi.client.SendPresence(e.ctx, types.PresenceAvailable)
+			_ = mi.getClient().SendPresence(e.ctx, types.PresenceAvailable)
 		}
 	}
 	return nil
@@ -222,13 +231,13 @@ func (e *Engine) Connect(ctx context.Context, instanceID string) error {
 		return err
 	}
 
-	if mi.client.IsConnected() {
+	if mi.getClient().IsConnected() {
 		return nil // already connected, nothing to do
 	}
 
 	mi.setStatus(engine.StatusConnecting)
 
-	if err := mi.client.ConnectContext(e.ctx); err != nil {
+	if err := mi.getClient().ConnectContext(e.ctx); err != nil {
 		mi.setStatus(engine.StatusDisconnected)
 		return fmt.Errorf("connect %s: %w", instanceID, err)
 	}
@@ -242,7 +251,7 @@ func (e *Engine) Disconnect(_ context.Context, instanceID string) error {
 	if err != nil {
 		return err
 	}
-	mi.client.Disconnect()
+	mi.getClient().Disconnect()
 	mi.setStatus(engine.StatusDisconnected)
 	return nil
 }
@@ -253,7 +262,7 @@ func (e *Engine) Logout(ctx context.Context, instanceID string) error {
 	if err != nil {
 		return err
 	}
-	if err := mi.client.Logout(ctx); err != nil {
+	if err := mi.getClient().Logout(ctx); err != nil {
 		return fmt.Errorf("logout %s: %w", instanceID, err)
 	}
 	mi.setStatus(engine.StatusLoggedOut)
@@ -272,7 +281,7 @@ func (e *Engine) GetQRChannel(ctx context.Context, instanceID string) (<-chan en
 		return nil, err
 	}
 
-	waChan, err := mi.client.GetQRChannel(ctx)
+	waChan, err := mi.getClient().GetQRChannel(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get QR channel: %w", err)
 	}
@@ -323,9 +332,32 @@ func (e *Engine) RequestPairCode(ctx context.Context, instanceID, phone string) 
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	code, err := mi.client.PairPhone(ctx, phone, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
+	code, err := mi.getClient().PairPhone(ctx, phone, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
 	if err != nil {
 		return "", fmt.Errorf("pair phone: %w", err)
 	}
 	return code, nil
+}
+
+// reinitClient replaces the whatsmeow client with a fresh one after a logout.
+// When WhatsApp fires LoggedOut it deletes the device row from SQLite, so
+// GetFirstDevice creates a new blank device — giving us a clean slate for the
+// next QR / pairing-code flow without a server restart.
+// Must be called in its own goroutine, not from within an event handler.
+func (e *Engine) reinitClient(instanceID string, mi *managedInstance) error {
+	device, err := mi.container.GetFirstDevice(e.ctx)
+	if err != nil {
+		return fmt.Errorf("reinit client for %s: %w", instanceID, err)
+	}
+
+	client := whatsmeow.NewClient(device, waLog.Noop)
+	client.EnableAutoReconnect = e.cfg.AutoReconnect
+	client.AddEventHandler(func(evt any) {
+		e.handleWAEvent(instanceID, mi, evt)
+	})
+
+	mi.clientRef.Store(client)
+	mi.setStatus(engine.StatusDisconnected)
+	e.log.Info().Str("instance", instanceID).Msg("Client reinitialized after logout — ready for new QR scan")
+	return nil
 }

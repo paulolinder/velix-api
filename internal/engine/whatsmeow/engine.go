@@ -88,8 +88,8 @@ func (e *Engine) Stop(_ context.Context) error {
 	defer e.mu.Unlock()
 
 	for id, mi := range e.clients {
-		if mi.client.IsConnected() {
-			mi.client.Disconnect()
+		if mi.getClient().IsConnected() {
+			mi.getClient().Disconnect()
 			e.log.Debug().Str("instance", id).Msg("Instance disconnected")
 		}
 	}

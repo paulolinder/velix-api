@@ -27,7 +27,7 @@ func (e *Engine) CreateGroup(ctx context.Context, instanceID string, req engine.
 		participants = append(participants, jid)
 	}
 
-	info, err := mi.client.CreateGroup(ctx, whatsmeow.ReqCreateGroup{
+	info, err := mi.getClient().CreateGroup(ctx, whatsmeow.ReqCreateGroup{
 		Name:         req.Name,
 		Participants: participants,
 	})
@@ -50,7 +50,7 @@ func (e *Engine) GetGroupInfo(ctx context.Context, instanceID, groupJID string) 
 		return engine.GroupInfo{}, fmt.Errorf("invalid group JID %q: %w", groupJID, err)
 	}
 
-	info, err := mi.client.GetGroupInfo(ctx, jid)
+	info, err := mi.getClient().GetGroupInfo(ctx, jid)
 	if err != nil {
 		return engine.GroupInfo{}, fmt.Errorf("get group info: %w", err)
 	}
@@ -85,7 +85,7 @@ func (e *Engine) UpdateGroupParticipants(ctx context.Context, instanceID, groupJ
 		return err
 	}
 
-	_, err = mi.client.UpdateGroupParticipants(ctx, jid, pJIDs, waAction)
+	_, err = mi.getClient().UpdateGroupParticipants(ctx, jid, pJIDs, waAction)
 	return err
 }
 
@@ -101,7 +101,7 @@ func (e *Engine) LeaveGroup(ctx context.Context, instanceID, groupJID string) er
 		return fmt.Errorf("invalid group JID %q: %w", groupJID, err)
 	}
 
-	return mi.client.LeaveGroup(ctx, jid)
+	return mi.getClient().LeaveGroup(ctx, jid)
 }
 
 // GetJoinedGroups returns all groups the instance is a member of.
@@ -111,7 +111,7 @@ func (e *Engine) GetJoinedGroups(ctx context.Context, instanceID string) ([]engi
 		return nil, err
 	}
 
-	groups, err := mi.client.GetJoinedGroups(ctx)
+	groups, err := mi.getClient().GetJoinedGroups(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get joined groups: %w", err)
 	}
@@ -165,7 +165,7 @@ func (e *Engine) GetGroupInviteLink(ctx context.Context, instanceID, groupJID st
 	if err != nil {
 		return "", fmt.Errorf("invalid group JID %q: %w", groupJID, err)
 	}
-	link, err := mi.client.GetGroupInviteLink(ctx, jid, reset)
+	link, err := mi.getClient().GetGroupInviteLink(ctx, jid, reset)
 	if err != nil {
 		return "", fmt.Errorf("get invite link: %w", err)
 	}
@@ -182,7 +182,7 @@ func (e *Engine) JoinGroupWithLink(ctx context.Context, instanceID, link string)
 	if idx := strings.LastIndex(link, "/"); idx >= 0 {
 		code = link[idx+1:]
 	}
-	groupJID, err := mi.client.JoinGroupWithLink(ctx, code)
+	groupJID, err := mi.getClient().JoinGroupWithLink(ctx, code)
 	if err != nil {
 		return "", fmt.Errorf("join group: %w", err)
 	}
@@ -198,7 +198,7 @@ func (e *Engine) SetGroupName(ctx context.Context, instanceID, groupJID, name st
 	if err != nil {
 		return fmt.Errorf("invalid group JID %q: %w", groupJID, err)
 	}
-	return mi.client.SetGroupName(ctx, jid, name)
+	return mi.getClient().SetGroupName(ctx, jid, name)
 }
 
 func (e *Engine) SetGroupDescription(ctx context.Context, instanceID, groupJID, description string) error {
@@ -210,7 +210,7 @@ func (e *Engine) SetGroupDescription(ctx context.Context, instanceID, groupJID, 
 	if err != nil {
 		return fmt.Errorf("invalid group JID %q: %w", groupJID, err)
 	}
-	return mi.client.SetGroupDescription(ctx, jid, description)
+	return mi.getClient().SetGroupDescription(ctx, jid, description)
 }
 
 func (e *Engine) SetGroupPhoto(ctx context.Context, instanceID, groupJID string, photo []byte) error {
@@ -222,7 +222,7 @@ func (e *Engine) SetGroupPhoto(ctx context.Context, instanceID, groupJID string,
 	if err != nil {
 		return fmt.Errorf("invalid group JID %q: %w", groupJID, err)
 	}
-	_, err = mi.client.SetGroupPhoto(ctx, jid, photo)
+	_, err = mi.getClient().SetGroupPhoto(ctx, jid, photo)
 	return err
 }
 

@@ -38,3 +38,6 @@ build_result.txt
 
 # Backup de env
 .env.backup
+
+# Git worktrees
+.worktrees/

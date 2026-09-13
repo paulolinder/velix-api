@@ -92,6 +92,19 @@ type SendContactRequest struct {
 	Contacts []ContactCardRequest `json:"contacts"`
 }
 
+// SendStatusRequest is the body for POST /messages/status.
+// Type must be "text", "image", or "video".
+// For "text": Caption is the text, BackgroundColor is an optional hex color (e.g. "#FF0000").
+// For "image"/"video": Data is base64-encoded file bytes, MimeType is required.
+type SendStatusRequest struct {
+	Type            string `json:"type"`                       // text | image | video
+	Caption         string `json:"caption,omitempty"`          // text content or media caption
+	BackgroundColor string `json:"background_color,omitempty"` // hex color for text status, e.g. "#000000"
+	FontType        int32  `json:"font_type,omitempty"`        // 0=SansSerif 1=Serif 2=Norican 3=Bryndan 4=Bebas 5=Oswald
+	DataB64         string `json:"data,omitempty"`             // base64-encoded image or video
+	MimeType        string `json:"mime_type,omitempty"`        // required for image/video
+}
+
 // MessageResponse is the JSON shape of a message.
 type MessageResponse struct {
 	ID                string         `json:"id"`

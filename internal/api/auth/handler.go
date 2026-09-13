@@ -3,6 +3,8 @@ package auth
 import (
 	"errors"
 	"net/http"
+	"net/mail"
+	"regexp"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -11,6 +13,10 @@ import (
 	"velix/internal/domain/auth"
 	"velix/internal/server/middleware"
 )
+
+// slugRegexp allows only lowercase letters, numbers, and hyphens (3–50 chars),
+// with no leading/trailing hyphens.
+var slugRegexp = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$`)
 
 // Handler holds the auth service dependency.
 type Handler struct {
@@ -84,6 +90,18 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		"email":          req.Email,
 		"password":       req.Password,
 	}) {
+		return
+	}
+
+	// Validate email format.
+	if _, err := mail.ParseAddress(req.Email); err != nil {
+		apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeValidation, "invalid email address"))
+		return
+	}
+	// Validate slug format.
+	if !slugRegexp.MatchString(req.Slug) {
+		apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeValidation,
+			"slug must be 3–50 characters, lowercase letters/numbers/hyphens only, no leading/trailing hyphens"))
 		return
 	}
 

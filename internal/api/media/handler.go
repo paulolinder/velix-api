@@ -16,6 +16,24 @@ import (
 
 const maxUploadSize = 64 << 20 // 64 MiB
 
+// allowedExtensions is the whitelist of file extensions accepted for upload.
+// This prevents storing HTML/JS/SVG files that could be served inline and used for XSS.
+var allowedExtensions = map[string]bool{
+	".jpg": true, ".jpeg": true, ".png": true, ".gif": true,
+	".webp": true, ".mp4": true, ".mp3": true, ".ogg": true,
+	".opus": true, ".aac": true, ".avi": true, ".mov": true,
+	".pdf": true, ".doc": true, ".docx": true, ".xls": true,
+	".xlsx": true, ".ppt": true, ".pptx": true, ".txt": true,
+	".zip": true, ".csv": true,
+}
+
+// inlineExtensions are types that browsers can safely display inline.
+var inlineExtensions = map[string]bool{
+	".jpg": true, ".jpeg": true, ".png": true, ".gif": true,
+	".webp": true, ".mp4": true, ".mp3": true, ".ogg": true,
+	".opus": true, ".aac": true, ".pdf": true,
+}
+
 // UploadResponse is returned after a successful media upload.
 type UploadResponse struct {
 	MediaID  string `json:"media_id"`
@@ -77,7 +95,12 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 	if origName == "." || origName == "" {
 		origName = "file"
 	}
-	ext := filepath.Ext(origName)
+	ext := strings.ToLower(filepath.Ext(origName))
+	if ext != "" && !allowedExtensions[ext] {
+		apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeValidation,
+			"file type not allowed: "+ext))
+		return
+	}
 	storedName := mediaID + ext
 
 	// Store inside the workspace-scoped subdirectory.
@@ -127,16 +150,26 @@ func (h *Handler) Download(w http.ResponseWriter, r *http.Request) {
 
 	wsDir := h.workspaceDir(claims.WorkspaceID)
 
+	serveMedia := func(path string) {
+		ext := strings.ToLower(filepath.Ext(path))
+		// Force download for types that are not safe to display inline,
+		// preventing stored-XSS via malicious HTML/JS served from 'self'.
+		if !inlineExtensions[ext] {
+			w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(path))
+		}
+		http.ServeFile(w, r, path)
+	}
+
 	// Find file with any extension in the workspace directory.
 	matches, err := filepath.Glob(filepath.Join(wsDir, mediaID+".*"))
 	if err == nil && len(matches) > 0 {
-		http.ServeFile(w, r, matches[0])
+		serveMedia(matches[0])
 		return
 	}
 	// Also try no extension.
 	p := filepath.Join(wsDir, mediaID)
 	if _, err := os.Stat(p); err == nil {
-		http.ServeFile(w, r, p)
+		serveMedia(p)
 		return
 	}
 

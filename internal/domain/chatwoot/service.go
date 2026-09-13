@@ -14,6 +14,7 @@ import (
 	"velix/internal/domain/instance"
 	"velix/internal/engine"
 	"velix/internal/logger"
+	"velix/internal/urlutil"
 )
 
 // HistoryBufferMsg mirrors repo.HistoryBufferMsg for the domain layer.
@@ -419,6 +420,9 @@ func (s *Service) HandleWebhook(ctx context.Context, p *ChatwootWebhookPayload) 
 
 // forwardAttachmentToWA downloads a Chatwoot attachment and sends it via WhatsApp.
 func (s *Service) forwardAttachmentToWA(ctx context.Context, instanceID, to, dataURL, fileType string) error {
+	if err := urlutil.ValidateWebhookURL(dataURL); err != nil {
+		return fmt.Errorf("chatwoot attachment URL rejected: %w", err)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, dataURL, nil)
 	if err != nil {
 		return err

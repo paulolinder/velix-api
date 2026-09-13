@@ -138,7 +138,20 @@ nos grupos de rota já existentes:
 | `messages:schedule` | `GET /messages/scheduled`, `DELETE /messages/{msgID}/schedule` |
 | `instances:manage` | toda a árvore `/instances/**` (inclui settings, presence, profile, chatwoot sync) |
 | `contacts:manage` | `/contacts/**`, `/groups/**` |
-| admin-only, sem toggle | `/audit-logs`, `/admin/stats`, `/metrics`, `/users/**` (novo) |
+| admin-only, sem toggle (novo) | `/users/**` |
+
+`/audit-logs` e `/admin/stats` continuam abertos a qualquer usuário
+autenticado do workspace, exatamente como hoje — não são tocados por esta
+mudança (`/admin/stats` é consumido pelo próprio `dashboard.html`, a
+primeira tela após o login, para qualquer usuário). `/metrics` continua
+`RequireRole(admin)`, como já é hoje.
+
+Correção de compatibilidade necessária: `router.go` hoje tem
+`middleware.RequireRole("admin", "developer")` no `/admin/stats` — como
+`developer` deixa de existir como role válido, esse call site precisa
+virar `middleware.RequireRole(auth.RoleAdmin, auth.RoleMember)` para não
+quebrar o dashboard de usuários não-admin (comportamento preservado, não
+uma restrição nova).
 
 ### Agendamento — decisão confirmada
 

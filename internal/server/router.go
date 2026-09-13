@@ -22,6 +22,7 @@ import (
 	mediaapi    "velix/internal/api/media"
 	messageapi  "velix/internal/api/message"
 	wsapi       "velix/internal/api/ws"
+	"velix/internal/domain/auth"
 	"velix/internal/metrics"
 	"velix/internal/server/middleware"
 	"velix/internal/ui"
@@ -121,54 +122,58 @@ func NewRouter(deps *Deps) http.Handler {
 			// Metrics — admin-only to prevent operational info leakage.
 			r.With(middleware.RequireRole("admin")).Get("/metrics", metrics.M.Handler())
 
-			// Admin API — only admin and developer roles.
-			r.With(middleware.RequireRole("admin", "developer")).
+			// Admin API — open to every authenticated workspace member (unchanged
+			// behavior — the retired "developer" role used to cover this too).
+			r.With(middleware.RequireRole(auth.RoleAdmin, auth.RoleMember)).
 				Get("/admin/stats", adminapi.Stats(deps.InstanceService, deps.AuthService))
 
 			// Instance management — single Route tree to avoid chi trie conflicts
 			// that arise when r.Mount and r.Route share the same path prefix.
 			instH := instanceapi.NewHandler(deps.InstanceService, deps.AuthService)
+			manageInstances := middleware.RequirePermission(auth.PermInstancesManage)
 			r.Route("/instances", func(r chi.Router) {
-				r.Post("/", instH.Create)
-				r.Get("/", instH.List)
+				r.With(manageInstances).Post("/", instH.Create)
+				r.With(manageInstances).Get("/", instH.List)
 
 				r.Route("/{instanceID}", func(r chi.Router) {
 					// All instance routes require ownership — dual layer:
 					// middleware verifies workspace + scope, service verifies again internally.
 					r.Use(middleware.RequireInstanceOwner(deps.InstanceService))
 
-					// Core CRUD + lifecycle.
-					r.Get("/", instH.Get)
-					r.Delete("/", instH.Delete)
-					r.Post("/connect", instH.Connect)
-					r.Post("/disconnect", instH.Disconnect)
-					r.Post("/logout", instH.Logout)
-					r.Get("/status", instH.GetStatus)
-					r.Get("/qr", instH.GetQR)
-					r.Post("/pair-code", instH.PairCode)
-					r.Mount("/settings", instanceapi.SettingsRoutes(deps.InstanceService))
+					// Core CRUD + lifecycle — gated by instances:manage.
+					r.Group(func(r chi.Router) {
+						r.Use(manageInstances)
+						r.Get("/", instH.Get)
+						r.Delete("/", instH.Delete)
+						r.Post("/connect", instH.Connect)
+						r.Post("/disconnect", instH.Disconnect)
+						r.Post("/logout", instH.Logout)
+						r.Get("/status", instH.GetStatus)
+						r.Get("/qr", instH.GetQR)
+						r.Post("/pair-code", instH.PairCode)
+						r.Mount("/settings", instanceapi.SettingsRoutes(deps.InstanceService))
+						r.Post("/presence", instanceapi.PresenceHandler(deps.InstanceService))
+						r.Patch("/profile", instanceapi.ProfileHandler(deps.InstanceService))
 
-					// Sub-resources.
+						// Chatwoot history sync.
+						chatwootSync := chatwootapi.NewSyncHandler(deps.ChatwootService)
+						r.Post("/chatwoot/sync", chatwootSync.Sync)
+					})
+
+					// Sub-resources — each enforces its own permission internally.
 					r.Mount("/messages", messageapi.Routes(deps.MessageService))
 					r.Mount("/contacts", contactapi.Routes(deps.Engine))
-					r.Mount("/groups",   groupapi.Routes(deps.Engine))
-					r.Post("/presence", instanceapi.PresenceHandler(deps.InstanceService))
-					r.Patch("/profile", instanceapi.ProfileHandler(deps.InstanceService))
-
-					// Chatwoot history sync.
-					chatwootSync := chatwootapi.NewSyncHandler(deps.ChatwootService)
-					r.Post("/chatwoot/sync", chatwootSync.Sync)
+					r.Mount("/groups", groupapi.Routes(deps.Engine))
 				})
 			})
-
 
 			// Audit log queries.
 			r.Get("/audit-logs", auditapi.NewHandler(deps.AuditRepo).List)
 
 			// Media upload and retrieval.
 			mediaHandler := mediaapi.NewHandler(deps.MediaStorePath)
-			r.Post("/media", mediaHandler.Upload)
-			r.Get("/media/{mediaID}", mediaHandler.Download)
+			r.With(middleware.RequirePermission(auth.PermMessagesSend)).Post("/media", mediaHandler.Upload)
+			r.With(middleware.RequirePermission(auth.PermMessagesView)).Get("/media/{mediaID}", mediaHandler.Download)
 		})
 	})
 

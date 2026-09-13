@@ -83,6 +83,9 @@ type Engine interface {
 	// SendContact sends one or more contact vCards.
 	SendContact(ctx context.Context, instanceID, to string, contacts []ContactCard) (SentMessage, error)
 
+	// SendStatus posts a text, image, or video update to the instance's WhatsApp Status (Story).
+	SendStatus(ctx context.Context, instanceID string, payload StatusPayload) (SentMessage, error)
+
 	// --- Contacts ---
 
 	// GetContacts returns all locally cached contacts for an instance.

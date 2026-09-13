@@ -2,8 +2,10 @@ package message
 
 import (
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -42,6 +44,7 @@ func Routes(svc *message.Service) http.Handler {
 	r.With(send).Post("/location", h.SendLocation)
 	r.With(send).Post("/poll", h.SendPoll)
 	r.With(send).Post("/contact", h.SendContact)
+	r.With(send).Post("/status", h.SendStatus)
 
 	r.With(view).Get("/", h.ListByChat)
 	r.With(schedule).Get("/scheduled", h.ListScheduled)
@@ -357,6 +360,85 @@ func (h *Handler) SendContact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	apipkg.WriteJSON(w, r, http.StatusCreated, fromDomain(msg))
+}
+
+// SendStatus handles POST /v1/instances/{instanceID}/messages/status.
+func (h *Handler) SendStatus(w http.ResponseWriter, r *http.Request) {
+	instanceID := apipkg.Param(r, "instanceID")
+
+	var req SendStatusRequest
+	if !apipkg.DecodeJSON(w, r, &req) {
+		return
+	}
+	if !apipkg.RequireFields(w, r, map[string]string{"type": req.Type}) {
+		return
+	}
+
+	statusType := engine.StatusType(req.Type)
+	switch statusType {
+	case engine.StatusTypeText, engine.StatusTypeImage, engine.StatusTypeVideo:
+	default:
+		apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeValidation, "type must be one of: text, image, video"))
+		return
+	}
+
+	if statusType == engine.StatusTypeText && req.Caption == "" {
+		apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeValidation, "caption required for text status"))
+		return
+	}
+
+	payload := engine.StatusPayload{
+		Type:     statusType,
+		Caption:  req.Caption,
+		FontType: req.FontType,
+	}
+
+	if req.BackgroundColor != "" {
+		color, err := parseHexColor(req.BackgroundColor)
+		if err != nil {
+			apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeValidation, "background_color must be a valid hex color, e.g. \"#FF0000\""))
+			return
+		}
+		payload.BackgroundColor = color
+	}
+
+	if statusType == engine.StatusTypeImage || statusType == engine.StatusTypeVideo {
+		if req.DataB64 == "" || req.MimeType == "" {
+			apipkg.WriteError(w, r, apipkg.NewErrorWithDetails(apipkg.ErrCodeValidation, "Validation failed", map[string]string{
+				"data":      "required for image/video status",
+				"mime_type": "required for image/video status",
+			}))
+			return
+		}
+		data, err := base64.StdEncoding.DecodeString(req.DataB64)
+		if err != nil {
+			apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeValidation, "data must be valid base64"))
+			return
+		}
+		payload.Data = data
+		payload.MimeType = req.MimeType
+	}
+
+	sent, err := h.svc.SendStatusUpdate(r.Context(), instanceID, payload)
+	if err != nil {
+		apipkg.LogAndFail(w, r, err, "send status")
+		return
+	}
+	apipkg.WriteJSON(w, r, http.StatusCreated, sent)
+}
+
+// parseHexColor converts a hex color string ("#RRGGBB" or "RRGGBB") to an ARGB uint32
+// with full opacity (alpha=0xFF).
+func parseHexColor(s string) (uint32, error) {
+	s = strings.TrimPrefix(s, "#")
+	if len(s) != 6 {
+		return 0, fmt.Errorf("expected 6 hex digits")
+	}
+	var r, g, b uint32
+	if _, err := fmt.Sscanf(s, "%02x%02x%02x", &r, &g, &b); err != nil {
+		return 0, err
+	}
+	return 0xFF000000 | (r << 16) | (g << 8) | b, nil
 }
 
 // SearchMessages handles GET /v1/instances/{instanceID}/messages/search?q=...&from=...&to=...

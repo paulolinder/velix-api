@@ -14,6 +14,94 @@ import (
 )
 
 // ---------------------------------------------------------------------------
+// SendStatus
+// ---------------------------------------------------------------------------
+
+// SendStatus posts a WhatsApp Status (Story) update.
+// Text statuses appear with a coloured background; image/video statuses are
+// uploaded to WhatsApp CDN and then broadcast to the status@broadcast JID.
+func (e *Engine) SendStatus(ctx context.Context, instanceID string, p engine.StatusPayload) (engine.SentMessage, error) {
+	mi, err := e.getInstance(instanceID)
+	if err != nil {
+		return engine.SentMessage{}, err
+	}
+	if mi.getStatus() == engine.StatusBanned {
+		return engine.SentMessage{}, fmt.Errorf("instance is banned — cannot send status")
+	}
+
+	if err := waitForRateLimit(ctx, mi); err != nil {
+		return engine.SentMessage{}, fmt.Errorf("rate limit: %w", err)
+	}
+
+	var msg *waProto.Message
+
+	switch p.Type {
+	case engine.StatusTypeText:
+		bgColor := p.BackgroundColor
+		if bgColor == 0 {
+			bgColor = 0xFF000000 // default: opaque black
+		}
+		fontType := waProto.ExtendedTextMessage_FontType(p.FontType)
+		msg = &waProto.Message{
+			ExtendedTextMessage: &waProto.ExtendedTextMessage{
+				Text:           proto.String(p.Caption),
+				BackgroundArgb: proto.Uint32(bgColor),
+				TextArgb:       proto.Uint32(0xFFFFFFFF), // white text
+				Font:           &fontType,
+			},
+		}
+
+	case engine.StatusTypeImage:
+		uploaded, err := mi.client.Upload(ctx, p.Data, whatsmeow.MediaImage)
+		if err != nil {
+			return engine.SentMessage{}, fmt.Errorf("upload image: %w", err)
+		}
+		size := uint64(len(p.Data))
+		msg = &waProto.Message{
+			ImageMessage: &waProto.ImageMessage{
+				Caption:       proto.String(p.Caption),
+				Mimetype:      proto.String(p.MimeType),
+				URL:           proto.String(uploaded.URL),
+				DirectPath:    proto.String(uploaded.DirectPath),
+				MediaKey:      uploaded.MediaKey,
+				FileEncSHA256: uploaded.FileEncSHA256,
+				FileSHA256:    uploaded.FileSHA256,
+				FileLength:    proto.Uint64(size),
+			},
+		}
+
+	case engine.StatusTypeVideo:
+		uploaded, err := mi.client.Upload(ctx, p.Data, whatsmeow.MediaVideo)
+		if err != nil {
+			return engine.SentMessage{}, fmt.Errorf("upload video: %w", err)
+		}
+		size := uint64(len(p.Data))
+		msg = &waProto.Message{
+			VideoMessage: &waProto.VideoMessage{
+				Caption:       proto.String(p.Caption),
+				Mimetype:      proto.String(p.MimeType),
+				URL:           proto.String(uploaded.URL),
+				DirectPath:    proto.String(uploaded.DirectPath),
+				MediaKey:      uploaded.MediaKey,
+				FileEncSHA256: uploaded.FileEncSHA256,
+				FileSHA256:    uploaded.FileSHA256,
+				FileLength:    proto.Uint64(size),
+			},
+		}
+
+	default:
+		return engine.SentMessage{}, fmt.Errorf("unsupported status type %q: must be text, image, or video", p.Type)
+	}
+
+	resp, err := mi.client.SendMessage(ctx, types.StatusBroadcastJID, msg)
+	if err != nil {
+		return engine.SentMessage{}, fmt.Errorf("send status: %w", err)
+	}
+	e.markAPISent(resp.ID)
+	return engine.SentMessage{ID: resp.ID, Timestamp: resp.Timestamp}, nil
+}
+
+// ---------------------------------------------------------------------------
 // SendLocation
 // ---------------------------------------------------------------------------
 

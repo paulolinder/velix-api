@@ -235,6 +235,12 @@ func (s *Service) SendContact(ctx context.Context, instanceID, to string, contac
 	return msg, nil
 }
 
+// SendStatusUpdate posts a WhatsApp Status (Story) update for an instance.
+// Status updates are not persisted as chat messages.
+func (s *Service) SendStatusUpdate(ctx context.Context, instanceID string, payload engine.StatusPayload) (engine.SentMessage, error) {
+	return s.engine.SendStatus(ctx, instanceID, payload)
+}
+
 // Search finds messages matching a text query within an instance.
 func (s *Service) Search(ctx context.Context, instanceID, query string, from, to *time.Time, limit, offset int) ([]*Message, error) {
 	if limit <= 0 || limit > 100 {

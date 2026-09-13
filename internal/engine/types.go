@@ -263,7 +263,30 @@ type QRPayload struct {
 
 // PairPayload is the payload for EventInstancePaired (after successful QR/code pairing).
 type PairPayload struct {
-	JID          string `json:"jid"`           // WhatsApp JID, e.g. 5511999990001@s.whatsapp.net
+	JID          string `json:"jid"`                     // WhatsApp JID, e.g. 5511999990001@s.whatsapp.net
 	Platform     string `json:"platform,omitempty"`      // e.g. iPhone, Android
 	BusinessName string `json:"business_name,omitempty"`
+}
+
+// StatusType enumerates the content types allowed in a WhatsApp Status update.
+type StatusType string
+
+const (
+	StatusTypeText  StatusType = "text"
+	StatusTypeImage StatusType = "image"
+	StatusTypeVideo StatusType = "video"
+)
+
+// StatusPayload carries the content for a WhatsApp Status (Story) update.
+type StatusPayload struct {
+	Type StatusType
+
+	// Text status fields.
+	Caption         string // text content (also used as caption for image/video)
+	BackgroundColor uint32 // ARGB color, e.g. 0xFF000000 for black (text status only)
+	FontType        int32  // 0=SansSerif 1=Serif 2=Norican 3=Bryndan 4=Bebas 5=Oswald
+
+	// Media status fields (image or video).
+	Data     []byte
+	MimeType string
 }

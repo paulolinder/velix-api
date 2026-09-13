@@ -125,6 +125,18 @@ Guia completo de deploy (Docker Compose, HTTPS com Nginx/Caddy, backup automáti
 curl -fsSL https://raw.githubusercontent.com/paulolinder/velix-api/master/scripts/install.sh | bash
 ```
 
+A imagem oficial fica no GitHub Container Registry: `ghcr.io/paulolinder/velix-api:latest` (rebuildada a cada push na `master`, multi-arch amd64/arm64).
+
+## Deploy com um clique
+
+| Plataforma | Como instalar |
+|---|---|
+| [Dokploy](https://dokploy.com) | Template oficial no catálogo — busque por **Velix API** |
+| [EasyPanel](https://easypanel.io) | Template oficial no catálogo — busque por **Velix API** |
+| [Coolify](https://coolify.io) | [paulolinder/coolify-velix](https://github.com/paulolinder/coolify-velix) |
+| [CapRover](https://caprover.com) | [paulolinder/caprover-velix](https://github.com/paulolinder/caprover-velix) — 3rd-party one-click repo |
+| [Runtipi](https://runtipi.io) | [paulolinder/runtipi-velix](https://github.com/paulolinder/runtipi-velix) — 3rd-party app store |
+
 ## Configuração
 
 Principais variáveis de ambiente (lista completa em [`.env.example`](.env.example) e [`docs/deploy.md`](docs/deploy.md)):

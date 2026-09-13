@@ -113,6 +113,8 @@ func (e *Engine) Unsubscribe(id uint32) {
 }
 
 // dispatch fans out an event to all registered subscribers.
+// Each handler runs in its own goroutine so the whatsmeow event loop is never
+// blocked by slow subscribers (DB writes, HTTP webhook delivery, WS fanout, etc.).
 func (e *Engine) dispatch(evt engine.Event) {
 	e.subMu.RLock()
 	list := make([]engine.EventHandler, 0, len(e.handlers))
@@ -122,7 +124,7 @@ func (e *Engine) dispatch(evt engine.Event) {
 	e.subMu.RUnlock()
 
 	for _, h := range list {
-		h(evt)
+		go h(evt)
 	}
 }
 

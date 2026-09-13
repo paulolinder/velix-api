@@ -3,6 +3,8 @@ package middleware
 
 import (
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	chimw "github.com/go-chi/chi/v5/middleware"
@@ -25,7 +27,7 @@ func RequestLogger(next http.Handler) http.Handler {
 			log.Ctx(ctx).Info().
 				Str("method", r.Method).
 				Str("path", r.URL.Path).
-				Str("query", r.URL.RawQuery).
+				Str("query", redactQuery(r.URL.RawQuery)).
 				Int("status", ww.Status()).
 				Int("bytes", ww.BytesWritten()).
 				Dur("latency", time.Since(start)).
@@ -35,4 +37,22 @@ func RequestLogger(next http.Handler) http.Handler {
 
 		next.ServeHTTP(ww, r.WithContext(ctx))
 	})
+}
+
+// redactQuery replaces the value of sensitive query parameters (token, api_key)
+// with "[redacted]" so they never appear in log files.
+func redactQuery(raw string) string {
+	if raw == "" || (!strings.Contains(raw, "token=") && !strings.Contains(raw, "api_key=")) {
+		return raw
+	}
+	vals, err := url.ParseQuery(raw)
+	if err != nil {
+		return "[unparseable]"
+	}
+	for _, key := range []string{"token", "api_key"} {
+		if vals.Has(key) {
+			vals.Set(key, "[redacted]")
+		}
+	}
+	return vals.Encode()
 }

@@ -26,7 +26,8 @@ import (
 
 // Ed25519 public key used to verify license JWTs.
 // The private key lives ONLY on the license server.
-const publicKeyB64 = "w+ksc78M6R6G/HLo4HPUUJT7rkNwCLle/KPALefX+Tc="
+// Not a const so tests can swap in a test-only keypair.
+var publicKeyB64 = "w+ksc78M6R6G/HLo4HPUUJT7rkNwCLle/KPALefX+Tc="
 
 // License server base URL for phone-home.
 const phoneHomeURL = "https://license.velix.dev/api/v1/license/validate"

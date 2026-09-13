@@ -92,6 +92,9 @@ func (m *mockRepo) RevokeAPIKey(_ context.Context, keyID, _ string) error {
 	return ErrInvalidAPIKey
 }
 func (m *mockRepo) TouchAPIKey(_ context.Context, _ string) error { return nil }
+func (m *mockRepo) HasAnyWorkspace(_ context.Context) (bool, error) {
+	return len(m.workspaces) > 0, nil
+}
 
 // --- Tests ---
 

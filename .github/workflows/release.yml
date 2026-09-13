@@ -105,3 +105,40 @@ jobs:
             ```
             ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}
             ```
+
+  # ── Bump e publica n8n-nodes-velix no npm ──────────────────────────────────
+  publish-npm:
+    needs: build-and-push
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configura git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Autentica GitHub CLI
+        run: echo "${{ secrets.GH_PAT }}" | gh auth login --with-token
+
+      - name: Bump versão e publica npm
+        run: |
+          git clone "https://x-access-token:${{ secrets.GH_PAT }}@github.com/paulolinder/velix-n8n.git" n8n
+          cd n8n
+
+          # Pega versão atual e incrementa o patch
+          CURRENT=$(node -p "require('./package.json').version")
+          NEW=$(node -p "
+            const [maj, min, pat] = '$CURRENT'.split('.').map(Number);
+            \`\${maj}.\${min}.\${pat + 1}\`
+          ")
+
+          # Atualiza package.json
+          npm version "$NEW" --no-git-tag-version
+
+          git add package.json
+          git commit -m "chore: bump to v${NEW} (velix-api ${{ github.ref_name }})"
+          git push origin master
+
+          # Tag dispara o publish.yml do velix-n8n automaticamente
+          git tag "v${NEW}"
+          git push origin "v${NEW}"

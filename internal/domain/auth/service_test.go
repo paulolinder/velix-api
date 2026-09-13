@@ -92,6 +92,15 @@ func (m *mockRepo) RevokeAPIKey(_ context.Context, keyID, _ string) error {
 	}
 	return ErrInvalidAPIKey
 }
+func (m *mockRepo) RevokeAPIKeysByUser(_ context.Context, userID string) error {
+	for _, k := range m.apiKeys {
+		if k.UserID == userID {
+			now := time.Now()
+			k.RevokedAt = &now
+		}
+	}
+	return nil
+}
 func (m *mockRepo) TouchAPIKey(_ context.Context, _ string) error { return nil }
 func (m *mockRepo) HasAnyWorkspace(_ context.Context) (bool, error) {
 	return len(m.workspaces) > 0, nil
@@ -430,6 +439,29 @@ func TestDeleteUser_RemovesOtherUser(t *testing.T) {
 	}
 	if _, err := svc.repo.GetUserByID(context.Background(), member.ID); err == nil {
 		t.Error("expected user to be gone after DeleteUser")
+	}
+}
+
+func TestDeleteUser_RevokesAPIKeys(t *testing.T) {
+	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
+	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin8@test.com", "Password1")
+	member, _ := svc.CreateUser(context.Background(), "ws-ws", "member8@test.com", "Password1", RoleMember, nil)
+
+	key, _, err := svc.CreateAPIKey(context.Background(), "ws-ws", member.ID, "member-key", nil, []string{"*"})
+	if err != nil {
+		t.Fatalf("CreateAPIKey failed: %v", err)
+	}
+
+	if err := svc.DeleteUser(context.Background(), "ws-ws", member.ID, admin.ID); err != nil {
+		t.Fatalf("DeleteUser failed: %v", err)
+	}
+
+	got, err := svc.repo.GetAPIKeyByPrefix(context.Background(), key.KeyPrefix)
+	if err != nil {
+		t.Fatalf("GetAPIKeyByPrefix failed: %v", err)
+	}
+	if got.RevokedAt == nil {
+		t.Error("expected API key to be revoked after its owning user was deleted")
 	}
 }
 

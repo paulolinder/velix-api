@@ -24,5 +24,6 @@ type Repository interface {
 	ListAPIKeys(ctx context.Context, workspaceID string) ([]*APIKey, error)
 	GetAPIKeyByPrefix(ctx context.Context, prefix string) (*APIKey, error)
 	RevokeAPIKey(ctx context.Context, keyID, workspaceID string) error
+	RevokeAPIKeysByUser(ctx context.Context, userID string) error
 	TouchAPIKey(ctx context.Context, keyID string) error // update last_used_at
 }

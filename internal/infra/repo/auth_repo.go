@@ -253,6 +253,14 @@ func (r *AuthRepo) RevokeAPIKey(ctx context.Context, keyID, workspaceID string) 
 	return nil
 }
 
+func (r *AuthRepo) RevokeAPIKeysByUser(ctx context.Context, userID string) error {
+	_, err := r.db.Exec(ctx, `UPDATE api_keys SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL`, userID)
+	if err != nil {
+		return fmt.Errorf("revoke api keys by user: %w", err)
+	}
+	return nil
+}
+
 func (r *AuthRepo) TouchAPIKey(ctx context.Context, keyID string) error {
 	_, err := r.db.Exec(ctx, `UPDATE api_keys SET last_used_at=NOW() WHERE id=$1`, keyID)
 	return err

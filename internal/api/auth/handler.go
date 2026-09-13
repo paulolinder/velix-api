@@ -54,9 +54,13 @@ func Routes(svc *auth.Service, registrationEnabled bool, authenticate func(http.
 		r.Use(authenticate)
 		r.Get("/me", h.Me)
 		r.Post("/logout", h.Logout)
-		r.Get("/api-keys", h.ListAPIKeys)
-		r.Post("/api-keys", h.CreateAPIKey)
-		r.Delete("/api-keys/{keyID}", h.RevokeAPIKey)
+
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.RequireRole(auth.RoleAdmin))
+			r.Get("/api-keys", h.ListAPIKeys)
+			r.Post("/api-keys", h.CreateAPIKey)
+			r.Delete("/api-keys/{keyID}", h.RevokeAPIKey)
+		})
 	})
 
 	return r

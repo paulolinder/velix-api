@@ -196,6 +196,9 @@ func (s *Service) DeleteUser(ctx context.Context, workspaceID, targetUserID, cal
 	if err != nil || target.WorkspaceID != workspaceID {
 		return ErrUserNotFound
 	}
+	if err := s.repo.RevokeAPIKeysByUser(ctx, targetUserID); err != nil {
+		return fmt.Errorf("revoke api keys: %w", err)
+	}
 	if err := s.repo.DeleteUser(ctx, targetUserID, workspaceID); err != nil {
 		return fmt.Errorf("delete user: %w", err)
 	}

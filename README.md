@@ -31,10 +31,12 @@ Code ou pareamento por código.
 
 ## Funcionalidades
 
-- **Instâncias multi-dispositivo** — várias sessões WhatsApp por workspace, conexão via QR Code ou pairing code, reconexão automática
-- **Mensagens** — texto, mídia (imagem/áudio/vídeo/documento), localização, contato, enquete, reação, agendamento, envio em lote, busca e histórico
-- **Grupos** — criar, listar, sair, gerenciar participantes
-- **Contatos** — checar número no WhatsApp, buscar info e foto de perfil
+- **Instâncias multi-dispositivo** — várias sessões WhatsApp por workspace, conexão via QR Code ou pairing code, reconexão automática, "About" e foto de perfil atualizáveis
+- **Mensagens** — texto, mídia (imagem/áudio/vídeo/documento/sticker), localização, contato vCard, enquete, reação, edição, revogação, timer de desaparecimento, agendamento, envio em lote, busca e histórico
+- **Status (Stories)** — postar atualizações de status em texto (com cor de fundo e fonte), imagem ou vídeo
+- **Grupos** — criar, listar, entrar por link, sair, info, gerenciar participantes (add/remove/promote/demote), atualizar nome e descrição, foto do grupo, link de convite (gerar e resetar)
+- **Contatos** — checar número no WhatsApp, info e foto de perfil, bloquear/desbloquear, listar bloqueados
+- **Presença** — enviar indicador de digitação/gravação/disponível por chat
 - **Eventos em tempo real** — WebSocket (`/v1/ws`) para status de conexão, mensagens recebidas, atualizações de presença
 - **Integração Chatwoot** — webhook + sincronização de histórico
 - **Multi-tenant** — workspaces isolados, autenticação por JWT ou API Key, controle de acesso por papel (admin/developer)

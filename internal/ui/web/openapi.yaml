@@ -4,7 +4,7 @@ info:
   description: |
     API WhatsApp multi-instância. Gerencie instâncias, envie mensagens (texto, mídia, reações),
     receba eventos em tempo real via webhooks ou WebSocket e agende mensagens.
-  version: "1.0.0"
+  version: "1.4.0"
   contact:
     name: Velix Support
   x-logo:
@@ -159,6 +159,10 @@ paths:
       responses:
         '200':
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Instance'
     delete:
       tags: [Instances]
       summary: Delete an instance
@@ -167,6 +171,54 @@ paths:
       responses:
         '204':
           description: Deleted
+
+  /instances/{instanceID}/status:
+    get:
+      tags: [Instances]
+      summary: Get real-time connection status of an instance
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [disconnected, connecting, connected, logged_out, banned]
+
+  /instances/{instanceID}/connect:
+    post:
+      tags: [Instances]
+      summary: Connect an instance to WhatsApp
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      responses:
+        '200':
+          description: OK
+
+  /instances/{instanceID}/disconnect:
+    post:
+      tags: [Instances]
+      summary: Disconnect an instance (keeps session)
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      responses:
+        '200':
+          description: OK
+
+  /instances/{instanceID}/logout:
+    post:
+      tags: [Instances]
+      summary: Log out and clear the WhatsApp session
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      responses:
+        '200':
+          description: OK
 
   /instances/{instanceID}/qr:
     get:
@@ -182,15 +234,33 @@ paths:
               schema:
                 type: string
 
-  /instances/{instanceID}/disconnect:
+  /instances/{instanceID}/pair-code:
     post:
       tags: [Instances]
-      summary: Disconnect and log out the instance
+      summary: Request a numeric pairing code (alternative to QR)
       parameters:
         - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone:
+                  type: string
+                  description: Phone number with country code (e.g. 5511999999999)
       responses:
         '200':
           description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
 
   /instances/{instanceID}/settings:
     get:
@@ -201,6 +271,10 @@ paths:
       responses:
         '200':
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstanceSettings'
     patch:
       tags: [Instances]
       summary: Update instance settings
@@ -212,6 +286,77 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/InstanceSettings'
+      responses:
+        '200':
+          description: OK
+
+  /instances/{instanceID}/presence:
+    post:
+      tags: [Instances]
+      summary: Send a presence/typing indicator
+      description: |
+        Send `available` or `unavailable` as a global presence update.
+        Send `typing`, `recording`, or `paused` with a `to` JID to indicate activity in a specific chat.
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                to:
+                  type: string
+                  description: JID of the chat (required for typing/recording/paused)
+                type:
+                  type: string
+                  enum: [typing, recording, paused, available, unavailable]
+      responses:
+        '200':
+          description: OK
+
+  /instances/{instanceID}/profile:
+    patch:
+      tags: [Instances]
+      summary: Update display name and/or profile photo
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                photo_b64:
+                  type: string
+                  format: byte
+                  description: Base64-encoded image bytes
+      responses:
+        '200':
+          description: OK
+
+  /instances/{instanceID}/status-message:
+    patch:
+      tags: [Instances]
+      summary: Update the instance's "About" text
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  description: New "About" / status text (max ~139 chars)
       responses:
         '200':
           description: OK
@@ -318,6 +463,109 @@ paths:
                 items:
                   $ref: '#/components/schemas/BatchResultItem'
 
+  /instances/{instanceID}/messages/location:
+    post:
+      tags: [Messages]
+      summary: Send a location pin
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendLocationRequest'
+      responses:
+        '201':
+          description: Sent
+
+  /instances/{instanceID}/messages/poll:
+    post:
+      tags: [Messages]
+      summary: Send an interactive poll
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendPollRequest'
+      responses:
+        '201':
+          description: Sent
+
+  /instances/{instanceID}/messages/contact:
+    post:
+      tags: [Messages]
+      summary: Send one or more contact vCards
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendContactRequest'
+      responses:
+        '201':
+          description: Sent
+
+  /instances/{instanceID}/messages/edit:
+    post:
+      tags: [Messages]
+      summary: Edit a previously sent message
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditMessageRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+
+  /instances/{instanceID}/messages/disappearing:
+    post:
+      tags: [Messages]
+      summary: Set the disappearing message timer for a chat
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetDisappearingTimerRequest'
+      responses:
+        '200':
+          description: OK
+
+  /instances/{instanceID}/messages/status:
+    post:
+      tags: [Messages]
+      summary: Post a WhatsApp Status (Story)
+      description: |
+        Posts a status update visible to all contacts. Supports text (with optional
+        background color and font style), image, and video.
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendStatusRequest'
+      responses:
+        '201':
+          description: Status posted
+
   /instances/{instanceID}/messages:
     get:
       tags: [Messages]
@@ -367,9 +615,11 @@ paths:
           application/json:
             schema:
               type: object
+              required: [to]
               properties:
                 to:
                   type: string
+                  description: Chat JID where the message lives
       responses:
         '204':
           description: Revoked
@@ -389,24 +639,101 @@ paths:
   /instances/{instanceID}/contacts:
     get:
       tags: [Contacts]
-      summary: List contacts for an instance
+      summary: List locally cached contacts for an instance
       parameters:
         - $ref: '#/components/parameters/instanceID'
       responses:
         '200':
           description: OK
 
+  /instances/{instanceID}/contacts/check:
+    post:
+      tags: [Contacts]
+      summary: Check which phone numbers have a WhatsApp account
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phones]
+              properties:
+                phones:
+                  type: array
+                  items:
+                    type: string
+                  description: List of phone numbers (e.g. ["5511999990001"])
+      responses:
+        '200':
+          description: OK
+
+  /instances/{instanceID}/contacts/blocklist:
+    get:
+      tags: [Contacts]
+      summary: Get the list of blocked contacts
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jids:
+                    type: array
+                    items:
+                      type: string
+
   /instances/{instanceID}/contacts/{jid}:
     get:
       tags: [Contacts]
-      summary: Get a single contact
+      summary: Get profile info for a contact
       parameters:
         - $ref: '#/components/parameters/instanceID'
-        - name: jid
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/jid'
+      responses:
+        '200':
+          description: OK
+
+  /instances/{instanceID}/contacts/{jid}/picture:
+    get:
+      tags: [Contacts]
+      summary: Get the profile picture URL for a contact or group
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+        - $ref: '#/components/parameters/jid'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+
+  /instances/{instanceID}/contacts/{jid}/block:
+    post:
+      tags: [Contacts]
+      summary: Block a contact
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+        - $ref: '#/components/parameters/jid'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Contacts]
+      summary: Unblock a contact
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+        - $ref: '#/components/parameters/jid'
       responses:
         '200':
           description: OK
@@ -418,6 +745,188 @@ paths:
       summary: List groups the instance is a member of
       parameters:
         - $ref: '#/components/parameters/instanceID'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupInfo'
+    post:
+      tags: [Groups]
+      summary: Create a new group
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                participants:
+                  type: array
+                  items:
+                    type: string
+                  description: Phone numbers or JIDs of initial participants
+      responses:
+        '201':
+          description: Group created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupInfo'
+
+  /instances/{instanceID}/groups/join:
+    post:
+      tags: [Groups]
+      summary: Join a group via invite link
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [link]
+              properties:
+                link:
+                  type: string
+                  description: Full invite URL (https://chat.whatsapp.com/CODE) or bare code
+      responses:
+        '200':
+          description: Joined
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  group_jid:
+                    type: string
+
+  /instances/{instanceID}/groups/{groupID}:
+    get:
+      tags: [Groups]
+      summary: Get group metadata and participant list
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+        - $ref: '#/components/parameters/groupID'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupInfo'
+    patch:
+      tags: [Groups]
+      summary: Update group name and/or description
+      description: Send only the fields you want to change.
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+        - $ref: '#/components/parameters/groupID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: OK
+
+  /instances/{instanceID}/groups/{groupID}/participants:
+    post:
+      tags: [Groups]
+      summary: Add, remove, promote, or demote participants
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+        - $ref: '#/components/parameters/groupID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, participants]
+              properties:
+                action:
+                  type: string
+                  enum: [add, remove, promote, demote]
+                participants:
+                  type: array
+                  items:
+                    type: string
+                  description: Phone numbers or JIDs
+      responses:
+        '200':
+          description: OK
+
+  /instances/{instanceID}/groups/{groupID}/leave:
+    delete:
+      tags: [Groups]
+      summary: Leave a group
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+        - $ref: '#/components/parameters/groupID'
+      responses:
+        '204':
+          description: Left the group
+
+  /instances/{instanceID}/groups/{groupID}/invite-link:
+    get:
+      tags: [Groups]
+      summary: Get (or reset) the group invite link
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+        - $ref: '#/components/parameters/groupID'
+        - name: reset
+          in: query
+          schema:
+            type: boolean
+          description: Pass `true` to revoke the current link and generate a new one
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  link:
+                    type: string
+                    format: uri
+
+  /instances/{instanceID}/groups/{groupID}/photo:
+    put:
+      tags: [Groups]
+      summary: Set the group profile picture
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+        - $ref: '#/components/parameters/groupID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [data]
+              properties:
+                data:
+                  type: string
+                  format: byte
+                  description: Base64-encoded image bytes
       responses:
         '200':
           description: OK
@@ -515,6 +1024,20 @@ components:
       schema:
         type: string
         format: uuid
+    groupID:
+      name: groupID
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Group JID (e.g. 120363000000000001@g.us) or numeric ID
+    jid:
+      name: jid
+      in: path
+      required: true
+      schema:
+        type: string
+      description: WhatsApp JID (e.g. 5511999999999@s.whatsapp.net)
     limit:
       name: limit
       in: query
@@ -532,7 +1055,7 @@ components:
   schemas:
     RegisterRequest:
       type: object
-      required: [email, password, name]
+      required: [email, password, name, terms_accepted]
       properties:
         email:
           type: string
@@ -542,6 +1065,9 @@ components:
           minLength: 8
         name:
           type: string
+        terms_accepted:
+          type: boolean
+          description: Must be true to accept the GPLv3 license terms
 
     LoginRequest:
       type: object
@@ -576,7 +1102,7 @@ components:
           type: string
         status:
           type: string
-          enum: [disconnected, connecting, connected, banned]
+          enum: [disconnected, connecting, connected, logged_out, banned]
         created_at:
           type: string
           format: date-time
@@ -701,6 +1227,151 @@ components:
         error:
           type: string
 
+    SendLocationRequest:
+      type: object
+      required: [to, lat, lng]
+      properties:
+        to:
+          type: string
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+        name:
+          type: string
+        address:
+          type: string
+
+    SendPollRequest:
+      type: object
+      required: [to, question, options]
+      properties:
+        to:
+          type: string
+        question:
+          type: string
+        options:
+          type: array
+          minItems: 2
+          maxItems: 12
+          items:
+            type: string
+        multi_select:
+          type: boolean
+          default: false
+
+    SendContactRequest:
+      type: object
+      required: [to, contacts]
+      properties:
+        to:
+          type: string
+        contacts:
+          type: array
+          items:
+            type: object
+            required: [name, phone]
+            properties:
+              name:
+                type: string
+              phone:
+                type: string
+
+    EditMessageRequest:
+      type: object
+      required: [to, message_id, text]
+      properties:
+        to:
+          type: string
+          description: Chat JID where the original message was sent
+        message_id:
+          type: string
+          description: WhatsApp message ID of the message to edit
+        text:
+          type: string
+          description: New text content
+
+    SetDisappearingTimerRequest:
+      type: object
+      required: [chat, seconds]
+      properties:
+        chat:
+          type: string
+          description: JID of the chat (user or group)
+        seconds:
+          type: integer
+          description: |
+            Timer duration in seconds.
+            - `0` — off
+            - `86400` — 24 hours
+            - `604800` — 7 days
+            - `7776000` — 90 days
+
+    SendStatusRequest:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [text, image, video]
+        caption:
+          type: string
+          description: Text content (for type=text) or caption (for image/video)
+        background_color:
+          type: string
+          description: Hex color for text status background (e.g. "#000000")
+        font_type:
+          type: integer
+          description: |
+            Font style for text status:
+            - `0` — SansSerif (default)
+            - `1` — Serif
+            - `2` — Norican
+            - `3` — Bryndan Write
+            - `4` — Bebas Neue
+            - `5` — Oswald
+        data:
+          type: string
+          format: byte
+          description: Base64-encoded image or video bytes (required for image/video)
+        mime_type:
+          type: string
+          description: MIME type (required for image/video, e.g. image/jpeg, video/mp4)
+
+    GroupInfo:
+      type: object
+      properties:
+        jid:
+          type: string
+        name:
+          type: string
+        topic:
+          type: string
+          description: Group description
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupParticipant'
+        is_announce:
+          type: boolean
+          description: Only admins can send messages
+        is_locked:
+          type: boolean
+          description: Only admins can edit group info
+        created_at:
+          type: string
+          format: date-time
+
+    GroupParticipant:
+      type: object
+      properties:
+        jid:
+          type: string
+        admin:
+          type: boolean
+
     Message:
       type: object
       properties:
@@ -727,7 +1398,7 @@ components:
           type: boolean
         type:
           type: string
-          enum: [text, image, video, audio, document, sticker, reaction]
+          enum: [text, image, video, audio, document, sticker, reaction, location, poll, contact]
         content:
           type: object
         scheduled_at:

@@ -1,0 +1,100 @@
+name: Update Template Repos
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  update-templates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Authenticate GitHub CLI
+        run: echo "${{ secrets.GH_PAT }}" | gh auth login --with-token
+
+      # ── EasyPanel ──────────────────────────────────────────────────────────
+      - name: Update EasyPanel template
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          BRANCH="update-velix-api-v${VERSION}"
+
+          git clone "https://x-access-token:${{ secrets.GH_PAT }}@github.com/paulolinder/templates.git" ep
+          cd ep
+
+          git remote add upstream https://github.com/easypanel-io/templates.git
+          git fetch upstream --quiet
+          git merge upstream/main --no-edit --quiet
+
+          git checkout -b "$BRANCH"
+
+          FILE="templates/velix-api/meta.yaml"
+
+          # Bump image version
+          sed -i "s|ghcr.io/paulolinder/velix-api:[^'\"]*|ghcr.io/paulolinder/velix-api:${VERSION}|g" "$FILE"
+
+          # Prepend new changelog entry
+          DATE=$(date +%Y-%m-%d)
+          python3 - <<PYEOF
+          import re
+          path = "$FILE"
+          content = open(path).read()
+          entry = f"  - date: $DATE\n    description: bump to v${VERSION}\n"
+          content = content.replace("changeLog:\n", f"changeLog:\n{entry}", 1)
+          open(path, "w").write(content)
+          PYEOF
+
+          git add "$FILE"
+          git commit -m "feat(velix-api): bump to v${VERSION}"
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --repo easypanel-io/templates \
+            --head "paulolinder:${BRANCH}" \
+            --base main \
+            --title "feat(velix-api): bump to v${VERSION}" \
+            --body "Automated image bump to \`ghcr.io/paulolinder/velix-api:${VERSION}\` (multi-arch amd64/arm64)."
+
+      # ── Dokploy ────────────────────────────────────────────────────────────
+      - name: Update Dokploy template
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          BRANCH="update-velix-api-v${VERSION}"
+
+          git clone "https://x-access-token:${{ secrets.GH_PAT }}@github.com/paulolinder/templates-1.git" dk
+          cd dk
+
+          git remote add upstream https://github.com/Dokploy/templates.git
+          git fetch upstream --quiet
+          git merge upstream/main --no-edit --quiet
+
+          git checkout -b "$BRANCH"
+
+          # Bump image in docker-compose.yml
+          sed -i "s|ghcr.io/paulolinder/velix-api:[^ ]*|ghcr.io/paulolinder/velix-api:${VERSION}|g" \
+            blueprints/velix-api/docker-compose.yml
+
+          # Bump version in meta.json
+          sed -i "s|\"version\": \"[^\"]*\"|\"version\": \"${VERSION}\"|g" \
+            blueprints/velix-api/meta.json
+
+          git add blueprints/velix-api/docker-compose.yml blueprints/velix-api/meta.json
+          git commit -m "feat(velix-api): bump to v${VERSION}"
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --repo Dokploy/templates \
+            --head "paulolinder:${BRANCH}" \
+            --base main \
+            --title "feat(velix-api): bump to v${VERSION}" \
+            --body "Automated image bump to \`ghcr.io/paulolinder/velix-api:${VERSION}\` (multi-arch amd64/arm64)."

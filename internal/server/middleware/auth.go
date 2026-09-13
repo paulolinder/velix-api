@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -96,6 +97,32 @@ func RequireRole(allowed ...auth.Role) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			claims := ClaimsFrom(r.Context())
 			if claims == nil || !set[claims.Role] {
+				apipkg.WriteError(w, r, apipkg.ErrForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// RequirePermission returns middleware that rejects requests where the
+// authenticated user's role is "member" and lacks perm in its permission set.
+// "admin" always passes. API key requests (claims.Role == "") are not affected
+// by this middleware — they keep today's behavior (gated only where
+// RequireScope is explicitly applied, which today is nowhere).
+func RequirePermission(perm auth.Permission) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims := ClaimsFrom(r.Context())
+			if claims == nil {
+				apipkg.WriteError(w, r, apipkg.ErrUnauthorized)
+				return
+			}
+			if claims.Role == "" || claims.Role == auth.RoleAdmin {
+				next.ServeHTTP(w, r)
+				return
+			}
+			if !slices.Contains(claims.Permissions, string(perm)) {
 				apipkg.WriteError(w, r, apipkg.ErrForbidden)
 				return
 			}

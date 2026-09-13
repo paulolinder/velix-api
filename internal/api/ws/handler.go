@@ -2,6 +2,7 @@ package ws
 
 import (
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/coder/websocket"
@@ -39,6 +40,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	claims, err := h.jwtSvc.ParseToken(token)
 	if err != nil {
 		apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeUnauthorized, "invalid token"))
+		return
+	}
+
+	// The WS stream carries every workspace event, including received message
+	// content — require messages:view (or admin) before allowing the upgrade.
+	if claims.Role != auth.RoleAdmin && !slices.Contains(claims.Permissions, string(auth.PermMessagesView)) {
+		apipkg.WriteError(w, r, apipkg.ErrForbidden)
 		return
 	}
 

@@ -9,8 +9,10 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	apipkg "velix/internal/api"
+	"velix/internal/domain/auth"
 	"velix/internal/domain/message"
 	"velix/internal/engine"
+	"velix/internal/server/middleware"
 )
 
 // Handler holds the message service for all HTTP handlers.
@@ -28,21 +30,25 @@ func Routes(svc *message.Service) http.Handler {
 	h := NewHandler(svc)
 	r := chi.NewRouter()
 
-	r.Post("/text", h.SendText)
-	r.Post("/media", h.SendMedia)
-	r.Post("/reaction", h.SendReaction)
-	r.Post("/read", h.MarkAsRead)
-	r.Post("/batch", h.BatchSend)
-	r.Post("/location", h.SendLocation)
-	r.Post("/poll", h.SendPoll)
-	r.Post("/contact", h.SendContact)
+	send := middleware.RequirePermission(auth.PermMessagesSend)
+	view := middleware.RequirePermission(auth.PermMessagesView)
+	schedule := middleware.RequirePermission(auth.PermMessagesSchedule)
 
-	r.Get("/", h.ListByChat)
-	r.Get("/scheduled", h.ListScheduled)
-	r.Get("/search", h.SearchMessages)
+	r.With(send).Post("/text", h.SendText)
+	r.With(send).Post("/media", h.SendMedia)
+	r.With(send).Post("/reaction", h.SendReaction)
+	r.With(send).Post("/read", h.MarkAsRead)
+	r.With(send).Post("/batch", h.BatchSend)
+	r.With(send).Post("/location", h.SendLocation)
+	r.With(send).Post("/poll", h.SendPoll)
+	r.With(send).Post("/contact", h.SendContact)
 
-	r.Delete("/{msgID}", h.RevokeMessage)
-	r.Delete("/{msgID}/schedule", h.CancelScheduled)
+	r.With(view).Get("/", h.ListByChat)
+	r.With(schedule).Get("/scheduled", h.ListScheduled)
+	r.With(view).Get("/search", h.SearchMessages)
+
+	r.With(send).Delete("/{msgID}", h.RevokeMessage)
+	r.With(schedule).Delete("/{msgID}/schedule", h.CancelScheduled)
 
 	return r
 }

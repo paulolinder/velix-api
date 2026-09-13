@@ -15,11 +15,15 @@ type Repository interface {
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 	GetUserByID(ctx context.Context, id string) (*User, error)
 	UpdateLastLogin(ctx context.Context, userID string) error
+	ListUsersByWorkspace(ctx context.Context, workspaceID string) ([]*User, error)
+	UpdateUser(ctx context.Context, id string, role Role, permissions []string, passwordHash string) (*User, error)
+	DeleteUser(ctx context.Context, id, workspaceID string) error
 
 	// --- API Keys ---
 	CreateAPIKey(ctx context.Context, key *APIKey) (*APIKey, error)
 	ListAPIKeys(ctx context.Context, workspaceID string) ([]*APIKey, error)
 	GetAPIKeyByPrefix(ctx context.Context, prefix string) (*APIKey, error)
 	RevokeAPIKey(ctx context.Context, keyID, workspaceID string) error
+	RevokeAPIKeysByUser(ctx context.Context, userID string) error
 	TouchAPIKey(ctx context.Context, keyID string) error // update last_used_at
 }

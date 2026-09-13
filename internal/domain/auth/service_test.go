@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -91,9 +92,49 @@ func (m *mockRepo) RevokeAPIKey(_ context.Context, keyID, _ string) error {
 	}
 	return ErrInvalidAPIKey
 }
+func (m *mockRepo) RevokeAPIKeysByUser(_ context.Context, userID string) error {
+	for _, k := range m.apiKeys {
+		if k.UserID == userID {
+			now := time.Now()
+			k.RevokedAt = &now
+		}
+	}
+	return nil
+}
 func (m *mockRepo) TouchAPIKey(_ context.Context, _ string) error { return nil }
 func (m *mockRepo) HasAnyWorkspace(_ context.Context) (bool, error) {
 	return len(m.workspaces) > 0, nil
+}
+func (m *mockRepo) ListUsersByWorkspace(_ context.Context, workspaceID string) ([]*User, error) {
+	var out []*User
+	for _, u := range m.users {
+		if u.WorkspaceID == workspaceID {
+			out = append(out, u)
+		}
+	}
+	return out, nil
+}
+func (m *mockRepo) UpdateUser(_ context.Context, id string, role Role, permissions []string, passwordHash string) (*User, error) {
+	for _, u := range m.users {
+		if u.ID == id {
+			u.Role = role
+			u.Permissions = permissions
+			if passwordHash != "" {
+				u.PasswordHash = passwordHash
+			}
+			return u, nil
+		}
+	}
+	return nil, ErrUserNotFound
+}
+func (m *mockRepo) DeleteUser(_ context.Context, id, _ string) error {
+	for email, u := range m.users {
+		if u.ID == id {
+			delete(m.users, email)
+			return nil
+		}
+	}
+	return ErrUserNotFound
 }
 
 // --- Tests ---
@@ -295,4 +336,151 @@ func TestAPIKey_ValidateRevoked(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for revoked API key")
 	}
+}
+
+func TestCreateUser_Member(t *testing.T) {
+	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
+	_, _, _, err := svc.Register(context.Background(), "WS", "ws", "admin@test.com", "Password1")
+	if err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	u, err := svc.CreateUser(context.Background(), "ws-ws", "member@test.com", "Password1", RoleMember,
+		[]string{"messages:view", "messages:send", "not-a-real-permission"})
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	if u.Role != RoleMember {
+		t.Errorf("role = %q, want %q", u.Role, RoleMember)
+	}
+	if len(u.Permissions) != 2 {
+		t.Errorf("permissions = %v, want exactly [messages:view messages:send] (invalid one filtered out)", u.Permissions)
+	}
+}
+
+func TestCreateUser_AdminIgnoresPermissions(t *testing.T) {
+	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
+
+	u, err := svc.CreateUser(context.Background(), "ws-ws", "admin2@test.com", "Password1", RoleAdmin,
+		[]string{"messages:view"})
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	if len(u.Permissions) != 0 {
+		t.Errorf("admin permissions = %v, want empty (ignored)", u.Permissions)
+	}
+}
+
+func TestCreateUser_InvalidRole(t *testing.T) {
+	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
+
+	_, err := svc.CreateUser(context.Background(), "ws-ws", "x@test.com", "Password1", Role("owner"), nil)
+	if !errors.Is(err, ErrInvalidRole) {
+		t.Fatalf("expected ErrInvalidRole, got %v", err)
+	}
+}
+
+func TestListUsers(t *testing.T) {
+	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
+	_, _, _, _ = svc.Register(context.Background(), "WS", "ws", "a@test.com", "Password1")
+	svc.CreateUser(context.Background(), "ws-ws", "b@test.com", "Password1", RoleMember, []string{"messages:view"})
+
+	users, err := svc.ListUsers(context.Background(), "ws-ws")
+	if err != nil {
+		t.Fatalf("ListUsers failed: %v", err)
+	}
+	if len(users) != 2 {
+		t.Errorf("got %d users, want 2", len(users))
+	}
+}
+
+func TestUpdateUser_ChangesPermissions(t *testing.T) {
+	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
+	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin3@test.com", "Password1")
+	member, _ := svc.CreateUser(context.Background(), "ws-ws", "member3@test.com", "Password1", RoleMember, []string{"messages:view"})
+
+	updated, err := svc.UpdateUser(context.Background(), "ws-ws", member.ID, admin.ID, RoleMember,
+		[]string{"messages:view", "instances:manage"}, "")
+	if err != nil {
+		t.Fatalf("UpdateUser failed: %v", err)
+	}
+	if len(updated.Permissions) != 2 {
+		t.Errorf("permissions = %v, want 2 entries", updated.Permissions)
+	}
+}
+
+func TestUpdateUser_SelfLockoutBlocked(t *testing.T) {
+	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
+	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin4@test.com", "Password1")
+
+	_, err := svc.UpdateUser(context.Background(), "ws-ws", admin.ID, admin.ID, RoleMember, nil, "")
+	if !errors.Is(err, ErrSelfLockout) {
+		t.Fatalf("expected ErrSelfLockout, got %v", err)
+	}
+}
+
+func TestDeleteUser_SelfDeleteBlocked(t *testing.T) {
+	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
+	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin5@test.com", "Password1")
+
+	err := svc.DeleteUser(context.Background(), "ws-ws", admin.ID, admin.ID)
+	if !errors.Is(err, ErrSelfLockout) {
+		t.Fatalf("expected ErrSelfLockout, got %v", err)
+	}
+}
+
+func TestDeleteUser_RemovesOtherUser(t *testing.T) {
+	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
+	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin6@test.com", "Password1")
+	member, _ := svc.CreateUser(context.Background(), "ws-ws", "member6@test.com", "Password1", RoleMember, nil)
+
+	if err := svc.DeleteUser(context.Background(), "ws-ws", member.ID, admin.ID); err != nil {
+		t.Fatalf("DeleteUser failed: %v", err)
+	}
+	if _, err := svc.repo.GetUserByID(context.Background(), member.ID); err == nil {
+		t.Error("expected user to be gone after DeleteUser")
+	}
+}
+
+func TestDeleteUser_RevokesAPIKeys(t *testing.T) {
+	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
+	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin8@test.com", "Password1")
+	member, _ := svc.CreateUser(context.Background(), "ws-ws", "member8@test.com", "Password1", RoleMember, nil)
+
+	key, _, err := svc.CreateAPIKey(context.Background(), "ws-ws", member.ID, "member-key", nil, []string{"*"})
+	if err != nil {
+		t.Fatalf("CreateAPIKey failed: %v", err)
+	}
+
+	if err := svc.DeleteUser(context.Background(), "ws-ws", member.ID, admin.ID); err != nil {
+		t.Fatalf("DeleteUser failed: %v", err)
+	}
+
+	got, err := svc.repo.GetAPIKeyByPrefix(context.Background(), key.KeyPrefix)
+	if err != nil {
+		t.Fatalf("GetAPIKeyByPrefix failed: %v", err)
+	}
+	if got.RevokedAt == nil {
+		t.Error("expected API key to be revoked after its owning user was deleted")
+	}
+}
+
+func TestParseToken_CarriesPermissions(t *testing.T) {
+	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
+	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin7@test.com", "Password1")
+	member, _ := svc.CreateUser(context.Background(), "ws-ws", "member7@test.com", "Password1", RoleMember, []string{"messages:view"})
+	_ = admin
+
+	_, token, err := svc.Login(context.Background(), "member7@test.com", "Password1")
+	if err != nil {
+		t.Fatalf("Login failed: %v", err)
+	}
+	claims, err := svc.ParseToken(token)
+	if err != nil {
+		t.Fatalf("ParseToken failed: %v", err)
+	}
+	if len(claims.Permissions) != 1 || claims.Permissions[0] != "messages:view" {
+		t.Errorf("claims.Permissions = %v, want [messages:view]", claims.Permissions)
+	}
+	_ = member
 }

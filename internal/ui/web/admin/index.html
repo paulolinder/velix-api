@@ -26,7 +26,7 @@
         <button @click="tab='login'; error=''"
                 :class="tab==='login' ? 'text-white border-b-2 border-green-500' : 'text-gray-500 hover:text-gray-300'"
                 class="flex-1 px-6 py-4 text-sm font-medium transition">Entrar</button>
-        <button @click="tab='register'; error=''"
+        <button x-show="registrationOpen" @click="tab='register'; error=''"
                 :class="tab==='register' ? 'text-white border-b-2 border-green-500' : 'text-gray-500 hover:text-gray-300'"
                 class="flex-1 px-6 py-4 text-sm font-medium transition">Criar conta</button>
       </div>
@@ -61,7 +61,7 @@
       </div>
 
       <!-- Register -->
-      <div x-show="tab==='register'" class="p-6">
+      <div x-show="tab==='register' && registrationOpen" class="p-6">
         <form @submit.prevent="register" class="space-y-4">
           <div>
             <label class="block text-xs font-medium text-gray-400 mb-1.5">Nome do workspace</label>
@@ -119,10 +119,23 @@
       // Estado de senha em tempo real
       pwLen: false, pwComplex: false,
       loading: false, error: '',
+      registrationOpen: false,
 
       init() {
         if (localStorage.getItem('wa_token')) {
           window.location.href = '/admin/dashboard.html';
+          return;
+        }
+        this.checkRegistrationStatus();
+      },
+
+      async checkRegistrationStatus() {
+        try {
+          const r = await fetch('/v1/auth/registration-status');
+          const d = await r.json();
+          this.registrationOpen = !!(d.success && d.data && d.data.open);
+        } catch (e) {
+          this.registrationOpen = false;
         }
       },
 
@@ -155,6 +168,7 @@
           }
           localStorage.setItem('wa_token', d.data.token);
           localStorage.setItem('wa_email', d.data.user?.email || this.loginEmail);
+          localStorage.setItem('wa_role', d.data.user?.role || '');
           window.location.href = '/admin/dashboard.html';
         } catch (e) {
           this.error = 'Erro de rede — o servidor está rodando?';
@@ -190,6 +204,7 @@
           }
           localStorage.setItem('wa_token', d.data.token);
           localStorage.setItem('wa_email', d.data.user?.email || this.regEmail);
+          localStorage.setItem('wa_role', d.data.user?.role || '');
           window.location.href = '/admin/dashboard.html';
         } catch (e) {
           this.error = 'Erro de rede — o servidor está rodando?';

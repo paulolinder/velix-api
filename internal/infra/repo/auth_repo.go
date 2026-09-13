@@ -71,16 +71,20 @@ func (r *AuthRepo) GetWorkspaceBySlug(ctx context.Context, slug string) (*auth.W
 
 func (r *AuthRepo) CreateUser(ctx context.Context, user *auth.User) (*auth.User, error) {
 	const q = `
-		INSERT INTO users (workspace_id, email, password_hash, role)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, workspace_id, email, password_hash, role, last_login_at, created_at, updated_at`
+		INSERT INTO users (workspace_id, email, password_hash, role, permissions)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, workspace_id, email, password_hash, role, permissions, last_login_at, created_at, updated_at`
 
-	return scanUser(r.db.QueryRow(ctx, q, user.WorkspaceID, user.Email, user.PasswordHash, user.Role))
+	perms := user.Permissions
+	if perms == nil {
+		perms = []string{}
+	}
+	return scanUser(r.db.QueryRow(ctx, q, user.WorkspaceID, user.Email, user.PasswordHash, user.Role, perms))
 }
 
 func (r *AuthRepo) GetUserByEmail(ctx context.Context, email string) (*auth.User, error) {
 	const q = `
-		SELECT id, workspace_id, email, password_hash, role, last_login_at, created_at, updated_at
+		SELECT id, workspace_id, email, password_hash, role, permissions, last_login_at, created_at, updated_at
 		FROM users WHERE email = $1`
 
 	u, err := scanUser(r.db.QueryRow(ctx, q, email))
@@ -95,7 +99,7 @@ func (r *AuthRepo) GetUserByEmail(ctx context.Context, email string) (*auth.User
 
 func (r *AuthRepo) GetUserByID(ctx context.Context, id string) (*auth.User, error) {
 	const q = `
-		SELECT id, workspace_id, email, password_hash, role, last_login_at, created_at, updated_at
+		SELECT id, workspace_id, email, password_hash, role, permissions, last_login_at, created_at, updated_at
 		FROM users WHERE id = $1`
 
 	u, err := scanUser(r.db.QueryRow(ctx, q, id))
@@ -111,6 +115,63 @@ func (r *AuthRepo) GetUserByID(ctx context.Context, id string) (*auth.User, erro
 func (r *AuthRepo) UpdateLastLogin(ctx context.Context, userID string) error {
 	_, err := r.db.Exec(ctx, `UPDATE users SET last_login_at=NOW(), updated_at=NOW() WHERE id=$1`, userID)
 	return err
+}
+
+func (r *AuthRepo) ListUsersByWorkspace(ctx context.Context, workspaceID string) ([]*auth.User, error) {
+	const q = `
+		SELECT id, workspace_id, email, password_hash, role, permissions, last_login_at, created_at, updated_at
+		FROM users WHERE workspace_id = $1
+		ORDER BY created_at ASC`
+
+	rows, err := r.db.Query(ctx, q, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []*auth.User
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, rows.Err()
+}
+
+func (r *AuthRepo) UpdateUser(ctx context.Context, id string, role auth.Role, permissions []string, passwordHash string) (*auth.User, error) {
+	const q = `
+		UPDATE users
+		SET role = $2,
+		    permissions = $3,
+		    password_hash = CASE WHEN $4 <> '' THEN $4 ELSE password_hash END,
+		    updated_at = NOW()
+		WHERE id = $1
+		RETURNING id, workspace_id, email, password_hash, role, permissions, last_login_at, created_at, updated_at`
+
+	if permissions == nil {
+		permissions = []string{}
+	}
+	u, err := scanUser(r.db.QueryRow(ctx, q, id, role, permissions, passwordHash))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("user not found")
+		}
+		return nil, err
+	}
+	return u, nil
+}
+
+func (r *AuthRepo) DeleteUser(ctx context.Context, id, workspaceID string) error {
+	tag, err := r.db.Exec(ctx, `DELETE FROM users WHERE id = $1 AND workspace_id = $2`, id, workspaceID)
+	if err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("user not found")
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -210,8 +271,11 @@ func scanWorkspace(row rowScanner) (*auth.Workspace, error) {
 func scanUser(row rowScanner) (*auth.User, error) {
 	u := &auth.User{}
 	var lastLogin *time.Time
-	err := row.Scan(&u.ID, &u.WorkspaceID, &u.Email, &u.PasswordHash, &u.Role, &lastLogin, &u.CreatedAt, &u.UpdatedAt)
+	err := row.Scan(&u.ID, &u.WorkspaceID, &u.Email, &u.PasswordHash, &u.Role, &u.Permissions, &lastLogin, &u.CreatedAt, &u.UpdatedAt)
 	u.LastLoginAt = lastLogin
+	if u.Permissions == nil {
+		u.Permissions = []string{}
+	}
 	return u, err
 }
 

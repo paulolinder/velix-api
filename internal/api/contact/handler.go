@@ -9,12 +9,15 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	apipkg "velix/internal/api"
+	"velix/internal/domain/auth"
 	"velix/internal/engine"
+	"velix/internal/server/middleware"
 )
 
 // Routes mounts contact routes under /v1/instances/{instanceID}/contacts.
 func Routes(eng engine.Engine) http.Handler {
 	r := chi.NewRouter()
+	r.Use(middleware.RequirePermission(auth.PermContactsManage))
 	r.Post("/check", checkHandler(eng))
 	r.Get("/{jid}", infoHandler(eng))
 	r.Get("/{jid}/picture", pictureHandler(eng))

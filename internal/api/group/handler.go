@@ -8,12 +8,15 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	apipkg "velix/internal/api"
+	"velix/internal/domain/auth"
 	"velix/internal/engine"
+	"velix/internal/server/middleware"
 )
 
 // Routes mounts group routes under /v1/instances/{instanceID}/groups.
 func Routes(eng engine.Engine) http.Handler {
 	r := chi.NewRouter()
+	r.Use(middleware.RequirePermission(auth.PermContactsManage))
 
 	r.Get("/", listHandler(eng))
 	r.Post("/", createHandler(eng))

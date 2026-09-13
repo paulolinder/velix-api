@@ -128,6 +128,33 @@ func TestRegister_WeakPassword(t *testing.T) {
 	}
 }
 
+func TestRegister_PasswordComplexity(t *testing.T) {
+	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
+
+	cases := []struct {
+		password string
+		wantErr  bool
+	}{
+		{"Password1", false},       // valid: upper + lower + digit
+		{"SenhaForte123!", false},  // valid
+		{"alllowercase1", true},    // missing uppercase
+		{"ALLUPPERCASE1", true},    // missing lowercase
+		{"NoDigitsHere", true},     // missing digit
+		{"Short1", true},           // too short
+		{"12345678", true},         // only digits
+	}
+
+	for _, c := range cases {
+		_, _, _, err := svc.Register(context.Background(), "WS", "ws", "u@t.com", c.password)
+		if c.wantErr && err == nil {
+			t.Errorf("password %q: expected error but got none", c.password)
+		}
+		if !c.wantErr && err != nil {
+			t.Errorf("password %q: unexpected error: %v", c.password, err)
+		}
+	}
+}
+
 func TestLogin(t *testing.T) {
 	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
 

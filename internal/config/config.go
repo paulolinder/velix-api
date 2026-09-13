@@ -125,7 +125,7 @@ func Load() (*Config, error) {
 			JWTSecret:           os.Getenv("JWT_SECRET"),
 			JWTExpiry:           envDuration("JWT_EXPIRY", 24*time.Hour),
 			APIKeyLength:        envInt("API_KEY_LENGTH", 32),
-			RegistrationEnabled: envBool("REGISTRATION_ENABLED", true),
+			RegistrationEnabled: envBool("REGISTRATION_ENABLED", false),
 		},
 		Media: MediaConfig{
 			StoragePath: env("MEDIA_STORAGE_PATH", "./data/media"),

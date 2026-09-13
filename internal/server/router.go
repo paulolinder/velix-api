@@ -118,8 +118,8 @@ func NewRouter(deps *Deps) http.Handler {
 			r.Use(authMiddleware)
 			r.Use(middleware.WorkspaceRateLimit(deps.Redis))
 
-			// Metrics — protected to prevent operational info leakage.
-			r.Get("/metrics", metrics.M.Handler())
+			// Metrics — admin-only to prevent operational info leakage.
+			r.With(middleware.RequireRole("admin")).Get("/metrics", metrics.M.Handler())
 
 			// Admin API — only admin and developer roles.
 			r.With(middleware.RequireRole("admin", "developer")).

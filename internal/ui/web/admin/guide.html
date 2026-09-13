@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/admin/dist/favicon.svg">
+  <title>Velix API — Guia do Usuário</title>
+  <link rel="stylesheet" href="/admin/dist/main.css">
+  <script defer src="/admin/dist/alpine.min.js"></script>
+  <script src="/admin/shared.js"></script>
+</head>
+<body class="bg-[#0d1117] text-gray-100" x-data="page()" x-init="init()" x-cloak>
+<div class="flex h-screen overflow-hidden">
+
+  <!-- Sidebar -->
+  <aside class="w-56 bg-[#0d1117] border-r border-[#1f2937] flex flex-col flex-shrink-0">
+    <div class="px-4 py-5 border-b border-[#1f2937]">
+      <div class="flex items-center gap-2.5">
+        <img src="/admin/dist/velix-logo.svg" alt="Velix" class="w-8 h-8 rounded-lg shadow-lg shadow-green-900/50">
+        <div>
+          <p class="font-semibold text-white text-sm leading-tight">Velix API</p>
+          <p class="text-[10px] text-gray-500">Admin</p>
+        </div>
+      </div>
+    </div>
+    <nav class="flex-1 p-2.5 space-y-0.5">
+      <a href="/admin/dashboard.html" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Painel
+      </a>
+      <a href="/admin/instances.html" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+        Instâncias
+      </a>
+      <a href="/admin/messages.html" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        Mensagens
+      </a>
+      <a href="/admin/scheduled.html" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Agendamentos
+      </a>
+      <a href="/admin/usage.html" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        Uso
+      </a>
+      <div class="border-t border-[#1f2937] my-2"></div>
+      <a href="/admin/guide.html" class="nav-item active">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+        Guia de Uso
+      </a>
+      <a href="/docs" target="_blank" class="nav-item">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Docs da API
+        <svg class="w-3 h-3 ml-auto opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+      </a>
+    </nav>
+    <div class="p-3 border-t border-[#1f2937]">
+      <div class="flex items-center gap-2.5 px-2 py-2 rounded-lg">
+        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-green-500 to-emerald-700 flex items-center justify-center text-xs font-bold text-white flex-shrink-0" x-text="getEmailInitial()"></div>
+        <p class="text-xs text-gray-400 truncate flex-1" x-text="email"></p>
+        <button @click="doLogout()" class="text-gray-600 hover:text-red-400 transition" title="Sair">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 overflow-auto">
+    <div class="max-w-3xl mx-auto p-6 pb-16">
+
+      <!-- Header -->
+      <div class="mb-8">
+        <h1 class="text-xl font-semibold text-white">Guia de Uso</h1>
+        <p class="text-gray-500 text-sm mt-0.5">Tudo que você precisa para começar com a Velix API</p>
+      </div>
+
+      <!-- TOC -->
+      <div class="bg-[#161b22] border border-[#1f2937] rounded-2xl p-5 mb-8">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Conteúdo</p>
+        <ol class="space-y-1.5 text-sm">
+          <li><a href="#overview" class="text-green-400 hover:text-green-300 transition">1. Visão Geral</a></li>
+          <li><a href="#auth" class="text-green-400 hover:text-green-300 transition">2. Autenticação</a></li>
+          <li><a href="#instances" class="text-green-400 hover:text-green-300 transition">3. Criando e Conectando Instâncias</a></li>
+          <li><a href="#messages" class="text-green-400 hover:text-green-300 transition">4. Enviando Mensagens</a></li>
+          <li><a href="#groups" class="text-green-400 hover:text-green-300 transition">5. Gerenciando Grupos</a></li>
+          <li><a href="#webhooks" class="text-green-400 hover:text-green-300 transition">6. Webhooks</a></li>
+          <li><a href="#chatwoot" class="text-green-400 hover:text-green-300 transition">7. Integração com Chatwoot</a></li>
+          <li><a href="#ws" class="text-green-400 hover:text-green-300 transition">8. WebSocket em Tempo Real</a></li>
+        </ol>
+      </div>
+
+      <!-- 1. Overview -->
+      <section id="overview" class="mb-10">
+        <h2 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-md bg-green-900/50 text-green-400 text-xs font-bold flex items-center justify-center">1</span>
+          Visão Geral
+        </h2>
+        <div class="prose-custom space-y-3 text-sm text-gray-400 leading-relaxed">
+          <p>A <strong class="text-white">Velix API</strong> é uma API REST que conecta seus sistemas ao WhatsApp multi-dispositivo sem navegador headless. Cada número do WhatsApp é representado por uma <strong class="text-white">instância</strong>.</p>
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl p-4 space-y-2">
+            <p class="text-xs font-semibold text-gray-300 uppercase tracking-wider">Fluxo básico</p>
+            <div class="flex flex-col gap-1.5 text-xs font-mono">
+              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded bg-green-900/40 text-green-400 flex items-center justify-center text-[10px] font-bold flex-shrink-0">1</span><span class="text-gray-300">Registrar workspace → obter JWT</span></div>
+              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded bg-green-900/40 text-green-400 flex items-center justify-center text-[10px] font-bold flex-shrink-0">2</span><span class="text-gray-300">Criar instância → obter API Key da instância</span></div>
+              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded bg-green-900/40 text-green-400 flex items-center justify-center text-[10px] font-bold flex-shrink-0">3</span><span class="text-gray-300">Conectar via QR Code ou Pairing Code</span></div>
+              <div class="flex items-center gap-2"><span class="w-5 h-5 rounded bg-green-900/40 text-green-400 flex items-center justify-center text-[10px] font-bold flex-shrink-0">4</span><span class="text-gray-300">Enviar e receber mensagens via API</span></div>
+            </div>
+          </div>
+          <p>A URL base da API é <code class="code">http://seu-servidor:8080/v1</code>. Toda resposta segue o envelope <code class="code">{"success": true, "data": {...}}</code>.</p>
+        </div>
+      </section>
+
+      <!-- 2. Auth -->
+      <section id="auth" class="mb-10">
+        <h2 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-md bg-green-900/50 text-green-400 text-xs font-bold flex items-center justify-center">2</span>
+          Autenticação
+        </h2>
+        <div class="space-y-4 text-sm text-gray-400">
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-[#1f2937] flex items-center gap-2">
+              <span class="text-xs font-semibold text-green-400 bg-green-900/30 px-2 py-0.5 rounded-md">POST</span>
+              <code class="text-xs text-gray-300">/v1/auth/register</code>
+              <span class="ml-auto text-[10px] text-gray-600">Primeiro acesso</span>
+            </div>
+            <div class="p-4">
+              <p class="mb-3 leading-relaxed">Cria o workspace e o primeiro usuário admin. Disponível apenas até o primeiro workspace ser criado (single-tenant) ou quando <code class="code">REGISTRATION_ENABLED=true</code>.</p>
+              <pre class="code-block">curl -X POST http://localhost:8080/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "workspace_name": "Minha Empresa",
+    "slug": "minha-empresa",
+    "email": "admin@empresa.com",
+    "password": "Senha123!"
+  }'</pre>
+              <p class="mt-3 text-xs text-gray-500">A resposta inclui um <code class="code">token</code> JWT — guarde-o para as chamadas seguintes. A senha precisa ter pelo menos 8 caracteres, uma letra maiúscula, uma minúscula e um número.</p>
+            </div>
+          </div>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-[#1f2937] flex items-center gap-2">
+              <span class="text-xs font-semibold text-green-400 bg-green-900/30 px-2 py-0.5 rounded-md">POST</span>
+              <code class="text-xs text-gray-300">/v1/auth/login</code>
+            </div>
+            <div class="p-4">
+              <pre class="code-block">curl -X POST http://localhost:8080/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@empresa.com", "password": "Senha123!"}'</pre>
+            </div>
+          </div>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl p-4 space-y-2">
+            <p class="text-xs font-semibold text-gray-300">Usando o token nas chamadas</p>
+            <p class="leading-relaxed">Inclua o JWT ou API Key no header <code class="code">Authorization</code>:</p>
+            <pre class="code-block">Authorization: Bearer seu_token_aqui
+# ou para API Keys:
+X-API-Key: wapi_xxxxxxxxxxxxxxxxxxxxxxxx</pre>
+          </div>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl p-4">
+            <p class="text-xs font-semibold text-gray-300 mb-2">API Keys por instância</p>
+            <p class="leading-relaxed mb-2">Ao criar uma instância, uma API Key permanente é gerada automaticamente. Você pode criar chaves adicionais com escopos específicos:</p>
+            <pre class="code-block">POST /v1/auth/api-keys
+{
+  "name": "Integração n8n",
+  "instance_id": "uuid-da-instancia"
+}</pre>
+            <p class="mt-2 text-xs text-gray-500">Chaves com <code class="code">instance_id</code> nunca expiram e só têm acesso àquela instância específica.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Instances -->
+      <section id="instances" class="mb-10">
+        <h2 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-md bg-green-900/50 text-green-400 text-xs font-bold flex items-center justify-center">3</span>
+          Criando e Conectando Instâncias
+        </h2>
+        <div class="space-y-4 text-sm text-gray-400">
+
+          <p class="leading-relaxed">Uma <strong class="text-white">instância</strong> representa um número do WhatsApp. Você pode ter várias instâncias por workspace (até o limite configurado em <code class="code">ENGINE_MAX_INSTANCES</code>).</p>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-[#1f2937] flex items-center gap-2">
+              <span class="text-xs font-semibold text-green-400 bg-green-900/30 px-2 py-0.5 rounded-md">POST</span>
+              <code class="text-xs text-gray-300">/v1/instances</code>
+              <span class="ml-auto text-[10px] text-gray-600">Criar instância</span>
+            </div>
+            <div class="p-4">
+              <pre class="code-block">curl -X POST http://localhost:8080/v1/instances \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Atendimento"}'</pre>
+              <p class="mt-3 text-xs text-gray-500">A resposta inclui o <code class="code">id</code> da instância e uma <code class="code">api_key</code> gerada automaticamente — salve essa chave, ela só é mostrada uma vez.</p>
+            </div>
+          </div>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl p-4 space-y-3">
+            <p class="text-xs font-semibold text-gray-300">Conectar via QR Code</p>
+            <p class="leading-relaxed">Conecte a instância e então abra o stream SSE para receber o QR Code:</p>
+            <pre class="code-block"># 1. Iniciar conexão
+POST /v1/instances/{id}/connect
+
+# 2. Receber QR Code via Server-Sent Events
+GET /v1/instances/{id}/qr
+# (mantém a conexão aberta; events: "qr", "paired", "error")
+
+# Cada evento "qr" traz:
+# { "code": "...", "timeout_seconds": 60, "image": "data:image/png;base64,..." }</pre>
+            <p class="text-xs text-gray-500">O campo <code class="code">image</code> é um PNG em base64 pronto para exibir como <code class="code">&lt;img src="..."&gt;</code>. Escaneie com o WhatsApp no celular: <strong class="text-gray-300">Configurações → Aparelhos Conectados → Conectar Aparelho</strong>.</p>
+          </div>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl p-4 space-y-3">
+            <p class="text-xs font-semibold text-gray-300">Conectar via Pairing Code (sem câmera)</p>
+            <pre class="code-block"># 1. Iniciar conexão
+POST /v1/instances/{id}/connect
+
+# 2. Solicitar código de 8 dígitos
+POST /v1/instances/{id}/pair-code
+{"phone": "5511999999999"}  # com código do país, sem +
+
+# Resposta: {"code": "ABCD-1234"}</pre>
+            <p class="text-xs text-gray-500">No celular: <strong class="text-gray-300">Configurações → Aparelhos Conectados → Conectar Aparelho → Conectar com número de telefone</strong>.</p>
+          </div>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl p-4">
+            <p class="text-xs font-semibold text-gray-300 mb-2">Estados da instância</p>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-gray-600 flex-shrink-0"></span><code class="code">disconnected</code> — desconectado</div>
+              <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse flex-shrink-0"></span><code class="code">connecting</code> — aguardando QR</div>
+              <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"></span><code class="code">connected</code> — online</div>
+              <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-400 flex-shrink-0"></span><code class="code">banned</code> — número banido</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Messages -->
+      <section id="messages" class="mb-10">
+        <h2 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-md bg-green-900/50 text-green-400 text-xs font-bold flex items-center justify-center">4</span>
+          Enviando Mensagens
+        </h2>
+        <div class="space-y-4 text-sm text-gray-400">
+
+          <p class="leading-relaxed">Todos os endpoints de mensagem ficam em <code class="code">/v1/instances/{instanceID}/messages/</code>. O campo <code class="code">to</code> aceita JID do WhatsApp no formato <code class="code">5511999999999@s.whatsapp.net</code> (pessoa) ou <code class="code">XXXXXXXXXXX-XXXXXXXXXX@g.us</code> (grupo).</p>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-[#1f2937]"><span class="text-xs font-semibold text-gray-300">Texto simples</span></div>
+            <div class="p-4">
+              <pre class="code-block">POST /v1/instances/{id}/messages/text
+{
+  "to": "5511999999999@s.whatsapp.net",
+  "text": "Olá! Como posso ajudar?",
+  "quoted_message_id": "MSGID123"  // opcional — responder mensagem
+}</pre>
+            </div>
+          </div>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-[#1f2937]"><span class="text-xs font-semibold text-gray-300">Mídia (imagem, vídeo, áudio, documento)</span></div>
+            <div class="p-4">
+              <pre class="code-block">POST /v1/instances/{id}/messages/media
+{
+  "to": "5511999999999@s.whatsapp.net",
+  "type": "image",          // image | video | audio | document | sticker
+  "data": "&lt;base64&gt;",       // conteúdo do arquivo em base64
+  "mime_type": "image/jpeg",
+  "caption": "Veja isso!",  // opcional
+  "file_name": "foto.jpg"   // opcional — para documentos
+}</pre>
+            </div>
+          </div>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-[#1f2937]"><span class="text-xs font-semibold text-gray-300">Envio em lote (até 100 destinatários)</span></div>
+            <div class="p-4">
+              <pre class="code-block">POST /v1/instances/{id}/messages/batch
+{
+  "messages": [
+    {"to": "5511111111111@s.whatsapp.net", "text": "Oi João!"},
+    {"to": "5522222222222@s.whatsapp.net", "text": "Oi Maria!"}
+  ]
+}
+// Resposta: array com status individual por mensagem (HTTP 207)</pre>
+            </div>
+          </div>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-[#1f2937]"><span class="text-xs font-semibold text-gray-300">Agendamento</span></div>
+            <div class="p-4">
+              <p class="mb-3 leading-relaxed">Inclua <code class="code">send_at</code> em qualquer mensagem para agendá-la:</p>
+              <pre class="code-block">POST /v1/instances/{id}/messages/text
+{
+  "to": "5511999999999@s.whatsapp.net",
+  "text": "Lembrete: reunião em 5 min!",
+  "send_at": "2025-12-25T10:00:00Z"
+}
+// Resposta HTTP 202 — mensagem agendada</pre>
+              <p class="mt-2 text-xs text-gray-500">Gerencie mensagens agendadas em <code class="code">GET /v1/instances/{id}/messages/scheduled</code> e cancele com <code class="code">DELETE /v1/instances/{id}/messages/{msgID}/schedule</code>.</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-[#161b22] border border-[#1f2937] rounded-xl p-4">
+              <p class="text-xs font-semibold text-gray-300 mb-2">Enquete</p>
+              <pre class="code-block text-[11px]">POST .../messages/poll
+{
+  "to": "...",
+  "question": "Qual horário?",
+  "options": ["9h","14h","18h"],
+  "multi_select": false
+}</pre>
+            </div>
+            <div class="bg-[#161b22] border border-[#1f2937] rounded-xl p-4">
+              <p class="text-xs font-semibold text-gray-300 mb-2">Reação</p>
+              <pre class="code-block text-[11px]">POST .../messages/reaction
+{
+  "to": "...",
+  "message_id": "MSGID",
+  "reaction": "👍"
+}</pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Groups -->
+      <section id="groups" class="mb-10">
+        <h2 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-md bg-green-900/50 text-green-400 text-xs font-bold flex items-center justify-center">5</span>
+          Gerenciando Grupos
+        </h2>
+        <div class="space-y-4 text-sm text-gray-400">
+          <p class="leading-relaxed">Endpoints em <code class="code">/v1/instances/{instanceID}/groups/</code>.</p>
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl p-4 space-y-3">
+            <pre class="code-block"># Listar grupos
+GET /v1/instances/{id}/groups
+
+# Criar grupo
+POST /v1/instances/{id}/groups
+{"name": "Equipe Vendas", "participants": ["5511111@s.whatsapp.net"]}
+
+# Obter info de um grupo (incluindo JID para enviar mensagens)
+GET /v1/instances/{id}/groups/{groupJID}
+
+# Adicionar participantes
+POST /v1/instances/{id}/groups/{groupJID}/participants
+{"participants": ["5522222@s.whatsapp.net"], "action": "add"}
+// action: "add" | "remove" | "promote" | "demote"
+
+# Sair do grupo
+DELETE /v1/instances/{id}/groups/{groupJID}</pre>
+          </div>
+          <p class="text-xs text-gray-500">Para enviar mensagens a um grupo, use o JID do grupo (formato <code class="code">XXXXXXXXXX-XXXXXXXXXX@g.us</code>) no campo <code class="code">to</code>.</p>
+        </div>
+      </section>
+
+      <!-- 6. Webhooks -->
+      <section id="webhooks" class="mb-10">
+        <h2 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-md bg-green-900/50 text-green-400 text-xs font-bold flex items-center justify-center">6</span>
+          Webhooks
+        </h2>
+        <div class="space-y-4 text-sm text-gray-400">
+
+          <p class="leading-relaxed">Configure uma URL de webhook nas configurações da instância para receber eventos em tempo real (mensagens recebidas, mudanças de status, etc.).</p>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-[#1f2937]"><span class="text-xs font-semibold text-gray-300">Configurar webhook</span></div>
+            <div class="p-4">
+              <pre class="code-block">PATCH /v1/instances/{id}/settings
+{
+  "webhook_url": "https://meuservidor.com/webhook",
+  "webhook_secret": "segredo-forte-123",
+  "webhook_events": ["message.received", "instance.connected"]
+  // Omita webhook_events para receber todos os eventos
+}</pre>
+            </div>
+          </div>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl p-4">
+            <p class="text-xs font-semibold text-gray-300 mb-2">Eventos disponíveis</p>
+            <div class="grid grid-cols-2 gap-1.5 text-xs font-mono text-gray-400">
+              <span>message.received</span>
+              <span>message.sent</span>
+              <span>message.delivered</span>
+              <span>message.read</span>
+              <span>instance.connected</span>
+              <span>instance.disconnected</span>
+              <span>instance.qr</span>
+              <span>call.received</span>
+            </div>
+          </div>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl p-4">
+            <p class="text-xs font-semibold text-gray-300 mb-2">Verificando a assinatura HMAC</p>
+            <p class="mb-3 leading-relaxed">Quando <code class="code">webhook_secret</code> está configurado, cada requisição inclui o header <code class="code">X-Webhook-Signature: sha256=...</code>. Verifique assim:</p>
+            <pre class="code-block">// Node.js
+const crypto = require('crypto');
+function verifySignature(body, secret, signature) {
+  const expected = 'sha256=' + crypto
+    .createHmac('sha256', secret)
+    .update(body)
+    .digest('hex');
+  return crypto.timingSafeEqual(
+    Buffer.from(signature), Buffer.from(expected)
+  );
+}</pre>
+          </div>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl p-4">
+            <p class="text-xs font-semibold text-gray-300 mb-2">Payload de exemplo — mensagem recebida</p>
+            <pre class="code-block">{
+  "event": "message.received",
+  "instance_id": "uuid-da-instancia",
+  "timestamp": "2025-01-15T14:30:00Z",
+  "data": {
+    "id": "MSGID123",
+    "from": "5511999999999@s.whatsapp.net",
+    "to":   "5511888888888@s.whatsapp.net",
+    "text": "Olá, preciso de ajuda!",
+    "timestamp": "2025-01-15T14:29:58Z"
+  }
+}</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. Chatwoot -->
+      <section id="chatwoot" class="mb-10">
+        <h2 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-md bg-green-900/50 text-green-400 text-xs font-bold flex items-center justify-center">7</span>
+          Integração com Chatwoot
+        </h2>
+        <div class="space-y-4 text-sm text-gray-400">
+
+          <p class="leading-relaxed">O Chatwoot é uma plataforma open-source de atendimento ao cliente. A integração sincroniza mensagens do WhatsApp com conversas no Chatwoot automaticamente.</p>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-[#1f2937]"><span class="text-xs font-semibold text-gray-300">Passo 1 — Configurar no Chatwoot</span></div>
+            <div class="p-4 space-y-2 text-xs">
+              <div class="flex items-start gap-2"><span class="w-4 h-4 rounded bg-green-900/30 text-green-400 flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-0.5">1</span><span>No Chatwoot, vá em <strong class="text-gray-300">Configurações → Inboxes → Nova Inbox</strong></span></div>
+              <div class="flex items-start gap-2"><span class="w-4 h-4 rounded bg-green-900/30 text-green-400 flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-0.5">2</span><span>Escolha o tipo <strong class="text-gray-300">API</strong> e nomeie a inbox (ex: "WhatsApp Vendas")</span></div>
+              <div class="flex items-start gap-2"><span class="w-4 h-4 rounded bg-green-900/30 text-green-400 flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-0.5">3</span><span>Copie o <strong class="text-gray-300">Access Token</strong>, o <strong class="text-gray-300">Account ID</strong> e o <strong class="text-gray-300">Inbox ID</strong></span></div>
+              <div class="flex items-start gap-2"><span class="w-4 h-4 rounded bg-green-900/30 text-green-400 flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-0.5">4</span><span>Configure o webhook da inbox para <code class="code">https://seu-velix/v1/chatwoot/webhook?secret=SEU_SECRET</code></span></div>
+            </div>
+          </div>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-[#1f2937]"><span class="text-xs font-semibold text-gray-300">Passo 2 — Configurar na instância Velix</span></div>
+            <div class="p-4">
+              <pre class="code-block">PATCH /v1/instances/{id}/settings
+{
+  "chatwoot_enabled":      true,
+  "chatwoot_url":          "https://app.chatwoot.com",
+  "chatwoot_token":        "access-token-do-chatwoot",
+  "chatwoot_account_id":   "1",
+  "chatwoot_inbox_id":     "5",
+  "chatwoot_sign_msgs":    true,   // assinar mensagens saintes
+  "chatwoot_reopen_conv":  true,   // reabrir conversa ao receber msg
+  "chatwoot_conv_pending": false   // criar conversas como pendente
+}</pre>
+            </div>
+          </div>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-[#1f2937]"><span class="text-xs font-semibold text-gray-300">Passo 3 — Variável de ambiente no servidor Velix</span></div>
+            <div class="p-4">
+              <pre class="code-block">CHATWOOT_WEBHOOK_SECRET=mesmo-secret-configurado-no-chatwoot</pre>
+              <p class="mt-2 text-xs text-gray-500">Sem essa variável o endpoint de webhook do Chatwoot retorna 503.</p>
+            </div>
+          </div>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl p-4">
+            <p class="text-xs font-semibold text-gray-300 mb-2">O que a integração faz automaticamente</p>
+            <ul class="space-y-1.5 text-xs list-none">
+              <li class="flex items-start gap-2"><span class="text-green-400 mt-0.5">✓</span> Cria/reabre conversas no Chatwoot para cada contato que manda mensagem</li>
+              <li class="flex items-start gap-2"><span class="text-green-400 mt-0.5">✓</span> Encaminha mensagens de agentes no Chatwoot para o WhatsApp</li>
+              <li class="flex items-start gap-2"><span class="text-green-400 mt-0.5">✓</span> Sincroniza mídias (imagem, vídeo, áudio como nota de voz)</li>
+              <li class="flex items-start gap-2"><span class="text-green-400 mt-0.5">✓</span> Sincroniza histórico de mensagens com <code class="code">POST /v1/instances/{id}/chatwoot/sync</code></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. WebSocket -->
+      <section id="ws" class="mb-10">
+        <h2 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-md bg-green-900/50 text-green-400 text-xs font-bold flex items-center justify-center">8</span>
+          WebSocket em Tempo Real
+        </h2>
+        <div class="space-y-4 text-sm text-gray-400">
+
+          <p class="leading-relaxed">Conecte ao WebSocket para receber eventos de todas as instâncias do workspace em tempo real, sem polling.</p>
+
+          <div class="bg-[#161b22] border border-[#1f2937] rounded-xl p-4">
+            <pre class="code-block">// Conexão
+ws://seu-servidor:8080/v1/ws?token=SEU_JWT
+
+// Mensagens recebidas pelo cliente (JSON):
+{
+  "type": "message.received",
+  "instance_id": "uuid",
+  "data": { ... }  // mesmo payload dos webhooks
+}
+
+// JavaScript
+const ws = new WebSocket(`ws://localhost:8080/v1/ws?token=${token}`);
+ws.onmessage = (e) => {
+  const evt = JSON.parse(e.data);
+  console.log(evt.type, evt.data);
+};</pre>
+          </div>
+
+          <div class="bg-yellow-950/40 border border-yellow-900/50 rounded-xl p-4">
+            <div class="flex gap-2">
+              <svg class="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+              <p class="text-xs text-yellow-400/90">Use WebSocket para interfaces em tempo real (dashboards, atendimento ao vivo). Para integrações server-to-server, prefira webhooks — são mais confiáveis em caso de reconexão.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <div class="border-t border-[#1f2937] pt-6 flex items-center justify-between">
+        <p class="text-xs text-gray-600">Documentação completa de todos os endpoints disponível no</p>
+        <a href="/docs" target="_blank" class="btn btn-secondary text-xs gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          Swagger UI ↗
+        </a>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<style>
+  .code-block {
+    background: #0d1117;
+    border: 1px solid #1f2937;
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: ui-monospace, 'Cascadia Code', monospace;
+    font-size: 11px;
+    line-height: 1.6;
+    color: #d1d5db;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  code.code {
+    background: #1f2937;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    color: #a3e635;
+  }
+</style>
+
+<script>
+function page() {
+  return {
+    email: getUserEmail(),
+    init() { requireAuth(); }
+  };
+}
+</script>
+</body>
+</html>

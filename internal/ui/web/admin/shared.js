@@ -44,6 +44,10 @@ function getUserEmail() {
   return localStorage.getItem('wa_email') || '';
 }
 
+function isAdmin() {
+  return localStorage.getItem('wa_role') === 'admin';
+}
+
 // Returns the uppercased first letter of the stored email, or '?' — safe to use
 // directly in x-text without complex method chains (Alpine CSP evaluator friendly).
 function getEmailInitial() {

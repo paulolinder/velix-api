@@ -2,25 +2,37 @@ package license
 
 import (
 	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"os"
 	"testing"
 	"time"
 )
 
-// testPrivKey is the private key matching publicKeyB64 in license.go.
-const testPrivKey = "3X19gvejQu55iCjZ777cHeaXliUqtLg7oRe94Q1/7vDXIFvmDDjR3UlfkWgijJLKS6dyeukqR2z9cC9wwcLffw=="
+// testPrivKey is generated fresh in TestMain and paired with the public key
+// installed into publicKeyB64 for the duration of the test run — the real
+// production private key lives only on the license server and is never
+// available here.
+var testPrivKey ed25519.PrivateKey
+
+func TestMain(m *testing.M) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	testPrivKey = priv
+	publicKeyB64 = base64.StdEncoding.EncodeToString(pub)
+	os.Exit(m.Run())
+}
 
 func signJWT(claims map[string]any) string {
-	privBytes, _ := base64.StdEncoding.DecodeString(testPrivKey)
-	priv := ed25519.PrivateKey(privBytes)
-
 	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"EdDSA","typ":"JWT"}`))
 	payloadJSON, _ := json.Marshal(claims)
 	payload := base64.RawURLEncoding.EncodeToString(payloadJSON)
 
 	signingInput := header + "." + payload
-	sig := ed25519.Sign(priv, []byte(signingInput))
+	sig := ed25519.Sign(testPrivKey, []byte(signingInput))
 	return signingInput + "." + base64.RawURLEncoding.EncodeToString(sig)
 }
 

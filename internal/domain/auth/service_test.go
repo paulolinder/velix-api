@@ -142,7 +142,7 @@ func (m *mockRepo) DeleteUser(_ context.Context, id, _ string) error {
 func TestRegister(t *testing.T) {
 	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
 
-	ws, user, token, err := svc.Register(context.Background(), "Test WS", "test-ws", "user@test.com", "Password1")
+	ws, user, token, err := svc.Register(context.Background(), "Test WS", "test-ws", "user@test.com", "Password1", true)
 	if err != nil {
 		t.Fatalf("Register failed: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestRegister(t *testing.T) {
 func TestRegister_WeakPassword(t *testing.T) {
 	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
 
-	_, _, _, err := svc.Register(context.Background(), "WS", "ws", "u@t.com", "weak")
+	_, _, _, err := svc.Register(context.Background(), "WS", "ws", "u@t.com", "weak", true)
 	if err == nil {
 		t.Fatal("expected error for weak password")
 	}
@@ -186,7 +186,7 @@ func TestRegister_PasswordComplexity(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		_, _, _, err := svc.Register(context.Background(), "WS", "ws", "u@t.com", c.password)
+		_, _, _, err := svc.Register(context.Background(), "WS", "ws", "u@t.com", c.password, true)
 		if c.wantErr && err == nil {
 			t.Errorf("password %q: expected error but got none", c.password)
 		}
@@ -199,7 +199,7 @@ func TestRegister_PasswordComplexity(t *testing.T) {
 func TestLogin(t *testing.T) {
 	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
 
-	_, _, _, err := svc.Register(context.Background(), "WS", "ws", "login@test.com", "Password1")
+	_, _, _, err := svc.Register(context.Background(), "WS", "ws", "login@test.com", "Password1", true)
 	if err != nil {
 		t.Fatalf("Register failed: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestLogin(t *testing.T) {
 func TestLogin_WrongPassword(t *testing.T) {
 	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
 
-	svc.Register(context.Background(), "WS", "ws", "u@t.com", "Password1")
+	svc.Register(context.Background(), "WS", "ws", "u@t.com", "Password1", true)
 
 	_, _, err := svc.Login(context.Background(), "u@t.com", "WrongPass1")
 	if err == nil {
@@ -239,7 +239,7 @@ func TestLogin_NonexistentUser(t *testing.T) {
 func TestParseToken_Valid(t *testing.T) {
 	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
 
-	svc.Register(context.Background(), "WS", "ws", "jwt@test.com", "Password1")
+	svc.Register(context.Background(), "WS", "ws", "jwt@test.com", "Password1", true)
 	_, token, _ := svc.Login(context.Background(), "jwt@test.com", "Password1")
 
 	claims, err := svc.ParseToken(token)
@@ -272,7 +272,7 @@ func TestParseToken_WrongSecret(t *testing.T) {
 
 	repo := newMockRepo()
 	svc1.repo = repo
-	svc1.Register(context.Background(), "WS", "ws", "cross@test.com", "Password1")
+	svc1.Register(context.Background(), "WS", "ws", "cross@test.com", "Password1", true)
 	_, token, _ := svc1.Login(context.Background(), "cross@test.com", "Password1")
 
 	_, err := svc2.ParseToken(token)
@@ -284,7 +284,7 @@ func TestParseToken_WrongSecret(t *testing.T) {
 func TestAPIKey_CreateAndValidate(t *testing.T) {
 	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
 
-	svc.Register(context.Background(), "WS", "ws", "key@test.com", "Password1")
+	svc.Register(context.Background(), "WS", "ws", "key@test.com", "Password1", true)
 
 	key, raw, err := svc.CreateAPIKey(context.Background(), "ws-ws", "user-key@test.com", "test-key", nil, []string{"*"})
 	if err != nil {
@@ -324,7 +324,7 @@ func TestAPIKey_ValidateInvalid(t *testing.T) {
 func TestAPIKey_ValidateRevoked(t *testing.T) {
 	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
 
-	svc.Register(context.Background(), "WS", "ws", "rev@test.com", "Password1")
+	svc.Register(context.Background(), "WS", "ws", "rev@test.com", "Password1", true)
 
 	key, raw, _ := svc.CreateAPIKey(context.Background(), "ws-ws", "user-rev@test.com", "revokable", nil, []string{"*"})
 
@@ -340,7 +340,7 @@ func TestAPIKey_ValidateRevoked(t *testing.T) {
 
 func TestCreateUser_Member(t *testing.T) {
 	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
-	_, _, _, err := svc.Register(context.Background(), "WS", "ws", "admin@test.com", "Password1")
+	_, _, _, err := svc.Register(context.Background(), "WS", "ws", "admin@test.com", "Password1", true)
 	if err != nil {
 		t.Fatalf("Register failed: %v", err)
 	}
@@ -382,7 +382,7 @@ func TestCreateUser_InvalidRole(t *testing.T) {
 
 func TestListUsers(t *testing.T) {
 	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
-	_, _, _, _ = svc.Register(context.Background(), "WS", "ws", "a@test.com", "Password1")
+	_, _, _, _ = svc.Register(context.Background(), "WS", "ws", "a@test.com", "Password1", true)
 	svc.CreateUser(context.Background(), "ws-ws", "b@test.com", "Password1", RoleMember, []string{"messages:view"})
 
 	users, err := svc.ListUsers(context.Background(), "ws-ws")
@@ -396,7 +396,7 @@ func TestListUsers(t *testing.T) {
 
 func TestUpdateUser_ChangesPermissions(t *testing.T) {
 	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
-	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin3@test.com", "Password1")
+	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin3@test.com", "Password1", true)
 	member, _ := svc.CreateUser(context.Background(), "ws-ws", "member3@test.com", "Password1", RoleMember, []string{"messages:view"})
 
 	updated, err := svc.UpdateUser(context.Background(), "ws-ws", member.ID, admin.ID, RoleMember,
@@ -411,7 +411,7 @@ func TestUpdateUser_ChangesPermissions(t *testing.T) {
 
 func TestUpdateUser_SelfLockoutBlocked(t *testing.T) {
 	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
-	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin4@test.com", "Password1")
+	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin4@test.com", "Password1", true)
 
 	_, err := svc.UpdateUser(context.Background(), "ws-ws", admin.ID, admin.ID, RoleMember, nil, "")
 	if !errors.Is(err, ErrSelfLockout) {
@@ -421,7 +421,7 @@ func TestUpdateUser_SelfLockoutBlocked(t *testing.T) {
 
 func TestDeleteUser_SelfDeleteBlocked(t *testing.T) {
 	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
-	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin5@test.com", "Password1")
+	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin5@test.com", "Password1", true)
 
 	err := svc.DeleteUser(context.Background(), "ws-ws", admin.ID, admin.ID)
 	if !errors.Is(err, ErrSelfLockout) {
@@ -431,7 +431,7 @@ func TestDeleteUser_SelfDeleteBlocked(t *testing.T) {
 
 func TestDeleteUser_RemovesOtherUser(t *testing.T) {
 	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
-	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin6@test.com", "Password1")
+	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin6@test.com", "Password1", true)
 	member, _ := svc.CreateUser(context.Background(), "ws-ws", "member6@test.com", "Password1", RoleMember, nil)
 
 	if err := svc.DeleteUser(context.Background(), "ws-ws", member.ID, admin.ID); err != nil {
@@ -444,7 +444,7 @@ func TestDeleteUser_RemovesOtherUser(t *testing.T) {
 
 func TestDeleteUser_RevokesAPIKeys(t *testing.T) {
 	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
-	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin8@test.com", "Password1")
+	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin8@test.com", "Password1", true)
 	member, _ := svc.CreateUser(context.Background(), "ws-ws", "member8@test.com", "Password1", RoleMember, nil)
 
 	key, _, err := svc.CreateAPIKey(context.Background(), "ws-ws", member.ID, "member-key", nil, []string{"*"})
@@ -467,7 +467,7 @@ func TestDeleteUser_RevokesAPIKeys(t *testing.T) {
 
 func TestParseToken_CarriesPermissions(t *testing.T) {
 	svc := NewService(newMockRepo(), "test-secret-that-is-32-chars-long!", 24*time.Hour)
-	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin7@test.com", "Password1")
+	_, admin, _, _ := svc.Register(context.Background(), "WS", "ws", "admin7@test.com", "Password1", true)
 	member, _ := svc.CreateUser(context.Background(), "ws-ws", "member7@test.com", "Password1", RoleMember, []string{"messages:view"})
 	_ = admin
 

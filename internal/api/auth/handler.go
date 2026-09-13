@@ -110,9 +110,9 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ws, user, token, err := h.svc.Register(r.Context(), req.WorkspaceName, req.Slug, req.Email, req.Password)
+	ws, user, token, err := h.svc.Register(r.Context(), req.WorkspaceName, req.Slug, req.Email, req.Password, req.TermsAccepted)
 	if err != nil {
-		if errors.Is(err, auth.ErrWeakPassword) {
+		if errors.Is(err, auth.ErrTermsNotAccepted) || errors.Is(err, auth.ErrWeakPassword) {
 			apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeValidation, err.Error()))
 			return
 		}

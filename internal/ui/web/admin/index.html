@@ -90,12 +90,23 @@
               </div>
             </div>
           </div>
+          <!-- Aceite de termos GPLv3 -->
+          <label class="flex items-start gap-2.5 cursor-pointer select-none">
+            <input x-model="termsAccepted" type="checkbox"
+                   class="mt-0.5 h-4 w-4 rounded border-gray-700 bg-gray-800 text-green-500 focus:ring-green-500 focus:ring-offset-gray-900 cursor-pointer">
+            <span class="text-xs text-gray-400 leading-relaxed">
+              Li e aceito os
+              <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener"
+                 class="text-green-400 hover:text-green-300 underline underline-offset-2">termos da licença GPLv3</a>
+              sob a qual este software é distribuído.
+            </span>
+          </label>
           <div x-show="error" x-transition
                class="flex items-start gap-2 px-3 py-2.5 bg-red-950/60 border border-red-900/50 rounded-xl text-red-400 text-xs">
             <svg class="w-3.5 h-3.5 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <span x-text="error"></span>
           </div>
-          <button type="submit" :disabled="loading || !pwLen || !pwComplex"
+          <button type="submit" :disabled="loading || !pwLen || !pwComplex || !termsAccepted"
                   class="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm">
             <svg x-show="loading" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -116,6 +127,7 @@
       // Campos separados por form — evita conflito entre login e register
       loginEmail: '', loginPassword: '',
       regName: '', regEmail: '', regPassword: '',
+      termsAccepted: false,
       // Estado de senha em tempo real
       pwLen: false, pwComplex: false,
       loading: false, error: '',
@@ -189,7 +201,8 @@
               workspace_name: this.regName,
               slug:           slug,
               email:          this.regEmail,
-              password:       this.regPassword
+              password:       this.regPassword,
+              terms_accepted: this.termsAccepted
             })
           });
           const d = await r.json();

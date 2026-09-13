@@ -28,15 +28,15 @@ func NewAuthRepo(db *pgxpool.Pool) *AuthRepo {
 
 func (r *AuthRepo) CreateWorkspace(ctx context.Context, ws *auth.Workspace) (*auth.Workspace, error) {
 	const q = `
-		INSERT INTO workspaces (name, slug)
-		VALUES ($1, $2)
-		RETURNING id, name, slug, created_at, updated_at`
+		INSERT INTO workspaces (name, slug, terms_accepted_at)
+		VALUES ($1, $2, $3)
+		RETURNING id, name, slug, terms_accepted_at, created_at, updated_at`
 
-	return scanWorkspace(r.db.QueryRow(ctx, q, ws.Name, ws.Slug))
+	return scanWorkspace(r.db.QueryRow(ctx, q, ws.Name, ws.Slug, ws.TermsAcceptedAt))
 }
 
 func (r *AuthRepo) GetWorkspaceByID(ctx context.Context, id string) (*auth.Workspace, error) {
-	const q = `SELECT id, name, slug, created_at, updated_at FROM workspaces WHERE id = $1`
+	const q = `SELECT id, name, slug, terms_accepted_at, created_at, updated_at FROM workspaces WHERE id = $1`
 	ws, err := scanWorkspace(r.db.QueryRow(ctx, q, id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -54,7 +54,7 @@ func (r *AuthRepo) HasAnyWorkspace(ctx context.Context) (bool, error) {
 }
 
 func (r *AuthRepo) GetWorkspaceBySlug(ctx context.Context, slug string) (*auth.Workspace, error) {
-	const q = `SELECT id, name, slug, created_at, updated_at FROM workspaces WHERE slug = $1`
+	const q = `SELECT id, name, slug, terms_accepted_at, created_at, updated_at FROM workspaces WHERE slug = $1`
 	ws, err := scanWorkspace(r.db.QueryRow(ctx, q, slug))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -272,7 +272,7 @@ func (r *AuthRepo) TouchAPIKey(ctx context.Context, keyID string) error {
 
 func scanWorkspace(row rowScanner) (*auth.Workspace, error) {
 	ws := &auth.Workspace{}
-	err := row.Scan(&ws.ID, &ws.Name, &ws.Slug, &ws.CreatedAt, &ws.UpdatedAt)
+	err := row.Scan(&ws.ID, &ws.Name, &ws.Slug, &ws.TermsAcceptedAt, &ws.CreatedAt, &ws.UpdatedAt)
 	return ws, err
 }
 

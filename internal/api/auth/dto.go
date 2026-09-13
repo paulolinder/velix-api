@@ -14,6 +14,7 @@ type RegisterRequest struct {
 	Slug          string `json:"slug"`
 	Email         string `json:"email"`
 	Password      string `json:"password"`
+	TermsAccepted bool   `json:"terms_accepted"`
 }
 
 // LoginRequest is the body for POST /v1/auth/login.
@@ -46,10 +47,11 @@ type LoginResponse struct {
 
 // WorkspaceResponse is the JSON shape of a workspace.
 type WorkspaceResponse struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Slug      string    `json:"slug"`
-	CreatedAt time.Time `json:"created_at"`
+	ID              string     `json:"id"`
+	Name            string     `json:"name"`
+	Slug            string     `json:"slug"`
+	TermsAcceptedAt *time.Time `json:"terms_accepted_at,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
 }
 
 // UserResponse is the JSON shape of a user (no password).
@@ -89,7 +91,13 @@ type RegistrationStatusResponse struct {
 }
 
 func workspaceFromDomain(ws *auth.Workspace) *WorkspaceResponse {
-	return &WorkspaceResponse{ID: ws.ID, Name: ws.Name, Slug: ws.Slug, CreatedAt: ws.CreatedAt}
+	return &WorkspaceResponse{
+		ID:              ws.ID,
+		Name:            ws.Name,
+		Slug:            ws.Slug,
+		TermsAcceptedAt: ws.TermsAcceptedAt,
+		CreatedAt:       ws.CreatedAt,
+	}
 }
 
 func userFromDomain(u *auth.User) *UserResponse {

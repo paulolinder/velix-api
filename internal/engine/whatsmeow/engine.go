@@ -35,29 +35,46 @@ type Engine struct {
 
 	// apiSentIDs tracks message IDs sent via the API so that their WhatsApp
 	// echo can be tagged Source="api" instead of Source="manual".
-	// Entries are removed when the echo arrives or after a 2-minute TTL.
-	apiSentIDs sync.Map // key: messageID (string) → struct{}
+	// Value is the time.Time at which the entry was created; a single
+	// background goroutine (started in Start) evicts entries older than 2
+	// minutes so we never spawn one goroutine per message.
+	apiSentIDs sync.Map // key: messageID (string) → time.Time
 }
 
 // markAPISent registers a message ID as API-originated.
-// The entry expires automatically after 2 minutes if the echo never arrives.
 func (e *Engine) markAPISent(id string) {
-	e.apiSentIDs.Store(id, struct{}{})
-	go func() {
-		t := time.NewTimer(2 * time.Minute)
-		defer t.Stop()
-		select {
-		case <-t.C:
-			e.apiSentIDs.Delete(id)
-		case <-e.ctx.Done():
-		}
-	}()
+	e.apiSentIDs.Store(id, time.Now())
 }
 
 // isAPISent returns true and removes the entry if the ID was API-sent.
 func (e *Engine) isAPISent(id string) bool {
 	_, ok := e.apiSentIDs.LoadAndDelete(id)
 	return ok
+}
+
+// startAPISentCleaner runs a single goroutine that evicts stale apiSentIDs
+// entries every minute. This replaces the previous pattern of spawning one
+// goroutine per markAPISent call, which could accumulate thousands of timers
+// on busy multi-instance deployments.
+func (e *Engine) startAPISentCleaner(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				cutoff := time.Now().Add(-2 * time.Minute)
+				e.apiSentIDs.Range(func(k, v any) bool {
+					if t, ok := v.(time.Time); ok && t.Before(cutoff) {
+						e.apiSentIDs.Delete(k)
+					}
+					return true
+				})
+			}
+		}
+	}()
 }
 
 // New creates a new WhatsMeow engine. Call Start(ctx) before any other method.
@@ -73,6 +90,7 @@ func New(cfg config.EngineConfig) *Engine {
 // Start implements engine.Engine. Validates store path and logs startup.
 func (e *Engine) Start(ctx context.Context) error {
 	e.ctx = ctx
+	e.startAPISentCleaner(ctx)
 	e.log.Info().
 		Str("store_path", e.cfg.StorePath).
 		Int("max_instances", e.cfg.MaxInstances).

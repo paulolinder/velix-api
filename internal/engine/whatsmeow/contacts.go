@@ -3,7 +3,9 @@ package waengine
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
 	waevents "go.mau.fi/whatsmeow/types/events"
 
@@ -78,17 +80,25 @@ func (e *Engine) GetContactInfo(ctx context.Context, instanceID, jid string) (en
 	// Pull cached contact data from the local store (push name / business name).
 	contact, _ := mi.getClient().Store.Contacts.GetContact(ctx, parsedJID)
 
-	// Fetch live UserInfo (status, picture ID) — best-effort.
+	// Fetch live UserInfo (status) — best-effort with short timeout so the
+	// WhatsApp IQ round-trip cannot block the HTTP handler indefinitely.
 	var status string
-	if infoMap, err := mi.getClient().GetUserInfo(ctx, []types.JID{parsedJID}); err == nil {
+	infoCtx, infoCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer infoCancel()
+	if infoMap, err := mi.getClient().GetUserInfo(infoCtx, []types.JID{parsedJID}); err == nil {
 		if info, ok := infoMap[parsedJID]; ok {
 			status = info.Status
 		}
 	}
 
-	// Attempt profile picture URL (non-fatal on error).
+	// Attempt profile picture thumbnail URL — best-effort, 5 s deadline.
+	// Preview=true requests a thumbnail rather than the full-size URL, which
+	// is faster and sufficient for display purposes. Callers wanting the
+	// full URL can call the dedicated GetProfilePicture endpoint instead.
 	picURL := ""
-	if pic, err := mi.getClient().GetProfilePictureInfo(ctx, parsedJID, nil); err == nil && pic != nil {
+	picCtx, picCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer picCancel()
+	if pic, err := mi.getClient().GetProfilePictureInfo(picCtx, parsedJID, &whatsmeow.GetProfilePictureParams{Preview: true}); err == nil && pic != nil {
 		picURL = pic.URL
 	}
 

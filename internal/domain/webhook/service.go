@@ -47,7 +47,17 @@ func NewService(eng engine.Engine, instReader InstanceSettingsReader) *Service {
 	s := &Service{
 		eng:        eng,
 		instReader: instReader,
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		// Never follow redirects: a webhook endpoint that returns 3xx is
+		// treated as delivered (status < 500). More importantly, following
+		// redirects bypasses the SSRF blocklist in ValidateWebhookURL — an
+		// attacker registers http://evil.com/ which 301-redirects to
+		// http://169.254.169.254/ and the default client would follow it.
+		httpClient: &http.Client{
+			Timeout: 10 * time.Second,
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
 		log:        logger.New("webhook-service"),
 		jobs:       make(chan deliveryJob, 1000),
 	}

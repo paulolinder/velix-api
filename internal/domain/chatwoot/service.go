@@ -65,7 +65,15 @@ func NewService(eng engine.Engine, instSvc InstanceSettingsReader, _ any, mappin
 		eng:      eng,
 		instSvc:  instSvc,
 		mappings: mappings,
-		http:     &http.Client{Timeout: 30 * time.Second},
+		// Never follow redirects — prevents SSRF bypass where a user-configured
+		// Chatwoot URL could redirect to an internal address that passes the
+		// initial SSRF check but not the redirect target check.
+		http: &http.Client{
+			Timeout: 30 * time.Second,
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
 		log:      logger.New("chatwoot-service"),
 		eventCh:  make(chan engine.Event, 500),
 	}

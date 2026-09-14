@@ -123,11 +123,18 @@ func (e *Engine) CreateInstance(ctx context.Context, instanceID string, opts eng
 	// Use Noop logger for WA internals to avoid log spam; swap to waLog.Zerolog for debugging.
 	waLogger := waLog.Noop
 
-	db, err := sql.Open("sqlite", fmt.Sprintf("file:%s?_pragma=foreign_keys(1)", dbPath))
+	// WAL mode: allows reads to proceed concurrently with writes (critical during
+	// history sync which bulk-inserts rows while API reads hit contacts/store).
+	// busy_timeout=5000: retry for up to 5 s instead of immediately returning
+	// SQLITE_BUSY when another writer holds the lock.
+	db, err := sql.Open("sqlite", fmt.Sprintf(
+		"file:%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)",
+		dbPath,
+	))
 	if err != nil {
 		return fmt.Errorf("open sqlite for %s: %w", instanceID, err)
 	}
-	// SQLite does not support concurrent connections well.
+	// WAL allows one writer + multiple readers; single writer is enough here.
 	db.SetMaxOpenConns(1)
 
 	container := sqlstore.NewWithDB(db, "sqlite3", waLogger)

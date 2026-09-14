@@ -277,7 +277,14 @@ func (s *Service) StartSchedulerWorker(ctx context.Context) {
 				s.log.Info().Msg("Scheduler worker stopped")
 				return
 			case <-ticker.C:
-				s.processScheduled(ctx)
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							s.log.Error().Interface("panic", r).Msg("panic in scheduler worker — recovered")
+						}
+					}()
+					s.processScheduled(ctx)
+				}()
 			}
 		}
 	}()

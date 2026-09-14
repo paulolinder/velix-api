@@ -87,7 +87,14 @@ func (s *Service) enqueueEvent(evt engine.Event) {
 // eventWorker processes Chatwoot events sequentially from the channel.
 func (s *Service) eventWorker() {
 	for evt := range s.eventCh {
-		s.handleEngineEvent(evt)
+		func(e engine.Event) {
+			defer func() {
+				if r := recover(); r != nil {
+					s.log.Error().Interface("panic", r).Str("event", string(e.Type)).Msg("panic in chatwoot worker — recovered")
+				}
+			}()
+			s.handleEngineEvent(e)
+		}(evt)
 	}
 }
 

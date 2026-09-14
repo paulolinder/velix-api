@@ -61,10 +61,19 @@ func NewService(eng engine.Engine, instReader InstanceSettingsReader) *Service {
 
 func (s *Service) worker() {
 	for job := range s.jobs {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		s.deliver(ctx, job.instanceID, job.eventType, job.payload)
-		cancel()
+		s.deliverSafe(job)
 	}
+}
+
+func (s *Service) deliverSafe(job deliveryJob) {
+	defer func() {
+		if r := recover(); r != nil {
+			s.log.Error().Interface("panic", r).Str("instance", job.instanceID).Msg("panic in webhook worker — recovered")
+		}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	s.deliver(ctx, job.instanceID, job.eventType, job.payload)
 }
 
 // handleEngineEvent converts an engine event to a JSON payload and enqueues delivery.

@@ -55,6 +55,67 @@ func (r *MessageRepo) Create(ctx context.Context, msg *message.Message) (*messag
 	return msg, nil
 }
 
+// CreateIfAbsent inserts msg unless a row with the same WhatsApp message ID
+// already exists for the instance. Reports whether a row was inserted.
+func (r *MessageRepo) CreateIfAbsent(ctx context.Context, msg *message.Message) (bool, error) {
+	const q = `
+		INSERT INTO messages (
+			instance_id, whatsapp_message_id, direction, status,
+			from_jid, to_jid, chat_jid, is_group, type, content,
+			scheduled_at, sent_at, delivered_at, read_at
+		)
+		SELECT $1::uuid, $2::varchar, $3::varchar, $4::varchar,
+		       $5::text, $6::text, $7::text, $8::boolean, $9::varchar, $10::jsonb,
+		       $11::timestamptz, $12::timestamptz, $13::timestamptz, $14::timestamptz
+		WHERE NOT EXISTS (
+			SELECT 1 FROM messages WHERE instance_id = $1::uuid AND whatsapp_message_id = $2::varchar
+		)`
+
+	tag, err := r.db.Exec(ctx, q,
+		msg.InstanceID,
+		nullString(msg.WhatsAppMessageID),
+		msg.Direction,
+		msg.Status,
+		msg.FromJID,
+		msg.ToJID,
+		msg.ChatJID,
+		msg.IsGroup,
+		msg.Type,
+		msg.Content,
+		msg.ScheduledAt,
+		msg.SentAt,
+		msg.DeliveredAt,
+		msg.ReadAt,
+	)
+	if err != nil {
+		return false, fmt.Errorf("create message if absent: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+// OldestByChat returns the oldest message in a chat that has a WhatsApp ID
+// and a send time — the anchor for on-demand history requests.
+func (r *MessageRepo) OldestByChat(ctx context.Context, instanceID, chatJID string) (*message.Message, error) {
+	const q = `
+		SELECT id, instance_id, COALESCE(whatsapp_message_id,''), direction, status,
+		       from_jid, to_jid, chat_jid, is_group, type, content,
+		       COALESCE(error_message,''), scheduled_at, sent_at, delivered_at, read_at, created_at
+		FROM messages
+		WHERE instance_id = $1 AND chat_jid = $2
+		  AND whatsapp_message_id IS NOT NULL AND sent_at IS NOT NULL
+		ORDER BY sent_at ASC
+		LIMIT 1`
+
+	msg, err := scanMessage(r.db.QueryRow(ctx, q, instanceID, chatJID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, message.ErrNotFound
+		}
+		return nil, err
+	}
+	return msg, nil
+}
+
 // GetByID retrieves a message by its internal UUID.
 func (r *MessageRepo) GetByID(ctx context.Context, id string) (*message.Message, error) {
 	const q = `
@@ -99,7 +160,7 @@ func (r *MessageRepo) ListByChat(ctx context.Context, instanceID, chatJID string
 		       COALESCE(error_message,''), scheduled_at, sent_at, delivered_at, read_at, created_at
 		FROM messages
 		WHERE instance_id = $1 AND chat_jid = $2
-		ORDER BY created_at DESC
+		ORDER BY COALESCE(sent_at, created_at) DESC
 		LIMIT $3 OFFSET $4`
 
 	rows, err := r.db.Query(ctx, q, instanceID, chatJID, limit, offset)

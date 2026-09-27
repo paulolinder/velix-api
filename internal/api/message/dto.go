@@ -106,6 +106,21 @@ type SetDisappearingTimerRequest struct {
 	Seconds int    `json:"seconds"` // 0=off 86400=24h 604800=7d 7776000=90d
 }
 
+// RequestHistoryRequest is the body for POST /messages/history.
+type RequestHistoryRequest struct {
+	Chat  string `json:"chat"`  // JID (user or group)
+	Count int    `json:"count"` // messages to request; default 50, max 100
+}
+
+// RequestHistoryResponse acknowledges an on-demand history request.
+type RequestHistoryResponse struct {
+	Status          string    `json:"status"` // always "requested"
+	Chat            string    `json:"chat"`
+	Count           int       `json:"count"`
+	AnchorMessageID string    `json:"anchor_message_id"`
+	AnchorTimestamp time.Time `json:"anchor_timestamp"`
+}
+
 // SendStatusRequest is the body for POST /messages/status.
 // Type must be "text", "image", or "video".
 // For "text": Caption is the text, BackgroundColor is an optional hex color (e.g. "#FF0000").

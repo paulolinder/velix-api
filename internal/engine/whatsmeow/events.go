@@ -486,9 +486,9 @@ func extFromMIME(mimeType string) string {
 }
 
 // handleHistorySync extracts messages from a WhatsApp history sync blob and
-// dispatches them as an EventHistorySync event. Only text messages from
-// individual chats (not groups) are included — media would require downloading
-// from WhatsApp CDN which is unreliable for old messages.
+// dispatches them as an EventHistorySync event. Both individual and group chats
+// are included (consumers filter as needed); media is tagged but not downloaded,
+// since fetching old media from the WhatsApp CDN is unreliable.
 func (e *Engine) handleHistorySync(instanceID string, mi *managedInstance, v *waevents.HistorySync) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -510,10 +510,11 @@ func (e *Engine) handleHistorySync(instanceID string, mi *managedInstance, v *wa
 		if chatJID == "" {
 			continue
 		}
-		// Skip groups and broadcasts — only sync individual chats.
-		if strings.Contains(chatJID, "@g.us") || strings.Contains(chatJID, "@broadcast") {
+		// Skip broadcasts and status updates.
+		if strings.Contains(chatJID, "@broadcast") {
 			continue
 		}
+		isGroup := strings.HasSuffix(chatJID, "@g.us")
 		// Resolve LID JIDs to phone-number JIDs so contacts get proper phone numbers.
 		chatJID = resolveHistoryJID(e.ctx, chatJID, store)
 
@@ -572,7 +573,14 @@ func (e *Engine) handleHistorySync(instanceID string, mi *managedInstance, v *wa
 				}
 			}
 
+			// In groups RemoteJID is the group itself — the author is the participant.
 			senderJID := key.GetRemoteJID()
+			if isGroup {
+				senderJID = key.GetParticipant()
+				if senderJID == "" {
+					senderJID = webMsg.GetParticipant()
+				}
+			}
 			if key.GetFromMe() {
 				senderJID = "me"
 			} else {
@@ -583,6 +591,7 @@ func (e *Engine) handleHistorySync(instanceID string, mi *managedInstance, v *wa
 				ChatJID:   chatJID,
 				SenderJID: senderJID,
 				FromMe:    key.GetFromMe(),
+				IsGroup:   isGroup,
 				MessageID: key.GetID(),
 				Text:      text,
 				Timestamp: ts,
@@ -601,15 +610,21 @@ func (e *Engine) handleHistorySync(instanceID string, mi *managedInstance, v *wa
 		return msgs[i].Timestamp.Before(msgs[j].Timestamp)
 	})
 
+	var ownJID string
+	if store.ID != nil {
+		ownJID = store.ID.ToNonAD().String()
+	}
+
 	e.log.Info().
 		Str("instance", instanceID).
+		Str("sync_type", data.GetSyncType().String()).
 		Int("messages", len(msgs)).
 		Msg("History sync received")
 
 	e.dispatch(engine.Event{
 		Type:       engine.EventHistorySync,
 		InstanceID: instanceID,
-		Payload:    &engine.HistorySyncPayload{Messages: msgs},
+		Payload:    &engine.HistorySyncPayload{Messages: msgs, OwnJID: ownJID},
 		Timestamp:  time.Now(),
 	})
 }

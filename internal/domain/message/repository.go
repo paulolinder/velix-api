@@ -10,13 +10,21 @@ type Repository interface {
 	// Create inserts a new message row and returns it with generated ID.
 	Create(ctx context.Context, msg *Message) (*Message, error)
 
+	// CreateIfAbsent inserts msg unless its WhatsApp ID already exists for the
+	// instance, reporting whether a row was inserted.
+	CreateIfAbsent(ctx context.Context, msg *Message) (bool, error)
+
+	// OldestByChat returns the oldest message with a WhatsApp ID in a chat,
+	// or ErrNotFound when the chat has none.
+	OldestByChat(ctx context.Context, instanceID, chatJID string) (*Message, error)
+
 	// GetByID retrieves a message by its internal UUID.
 	GetByID(ctx context.Context, id string) (*Message, error)
 
 	// GetByWhatsAppID retrieves a message by its WhatsApp message ID within an instance.
 	GetByWhatsAppID(ctx context.Context, instanceID, whatsappID string) (*Message, error)
 
-	// ListByChat returns messages for a specific chat, newest first.
+	// ListByChat returns messages for a specific chat, newest first by send time.
 	ListByChat(ctx context.Context, instanceID, chatJID string, limit, offset int) ([]*Message, error)
 
 	// UpdateStatus updates a message's delivery status.

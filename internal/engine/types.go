@@ -232,8 +232,9 @@ type VCardInfo struct {
 // HistorySyncMessage represents a single message extracted from a WhatsApp history sync blob.
 type HistorySyncMessage struct {
 	ChatJID   string    `json:"chat_jid"`
-	SenderJID string    `json:"sender_jid"`
+	SenderJID string    `json:"sender_jid"` // "me" when FromMe; group participant in groups
 	FromMe    bool      `json:"from_me"`
+	IsGroup   bool      `json:"is_group"`
 	MessageID string    `json:"message_id"`
 	Text      string    `json:"text"`
 	Timestamp time.Time `json:"timestamp"`
@@ -244,6 +245,16 @@ type HistorySyncMessage struct {
 // HistorySyncPayload is the payload for EventHistorySync.
 type HistorySyncPayload struct {
 	Messages []HistorySyncMessage `json:"messages"`
+	OwnJID   string               `json:"own_jid"` // instance's own phone JID, for FromMe messages
+}
+
+// HistoryAnchor identifies the oldest message already known for a chat.
+// WhatsApp returns messages older than this one on an on-demand history request.
+type HistoryAnchor struct {
+	ChatJID   string
+	MessageID string
+	FromMe    bool
+	Timestamp time.Time
 }
 
 // ReceiptPayload is the payload for EventReceiptDelivered / EventReceiptRead.

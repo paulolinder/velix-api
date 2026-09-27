@@ -224,6 +224,32 @@ func (e *Engine) MarkAsRead(ctx context.Context, instanceID, chat string, messag
 	return mi.getClient().MarkRead(ctx, ids, time.Now(), chatJID, types.EmptyJID)
 }
 
+// RequestHistory sends an on-demand history sync request to the primary device.
+// The phone replies with a HistorySync (type ON_DEMAND) handled by handleHistorySync.
+func (e *Engine) RequestHistory(ctx context.Context, instanceID string, anchor engine.HistoryAnchor, count int) error {
+	mi, err := e.getInstance(instanceID)
+	if err != nil {
+		return err
+	}
+
+	chatJID, err := parseJID(anchor.ChatJID)
+	if err != nil {
+		return fmt.Errorf("invalid chat JID %q: %w", anchor.ChatJID, err)
+	}
+
+	cli := mi.getClient()
+	req := cli.BuildHistorySyncRequest(&types.MessageInfo{
+		MessageSource: types.MessageSource{Chat: chatJID, IsFromMe: anchor.FromMe, IsGroup: chatJID.Server == types.GroupServer},
+		ID:            types.MessageID(anchor.MessageID),
+		Timestamp:     anchor.Timestamp,
+	}, count)
+
+	if _, err := cli.SendPeerMessage(ctx, req); err != nil {
+		return fmt.Errorf("send history request: %w", err)
+	}
+	return nil
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

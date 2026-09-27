@@ -120,6 +120,10 @@ type Engine interface {
 	// seconds: 0=off, 86400=24h, 604800=7d, 7776000=90d
 	SetDisappearingTimer(ctx context.Context, instanceID, chatJID string, seconds int) error
 
+	// RequestHistory asks the primary device for up to count messages older
+	// than anchor. The reply arrives asynchronously as an EventHistorySync.
+	RequestHistory(ctx context.Context, instanceID string, anchor HistoryAnchor, count int) error
+
 	// SetStatusMessage updates the instance's own "about" / status text.
 	SetStatusMessage(ctx context.Context, instanceID, status string) error
 

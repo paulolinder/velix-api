@@ -3,7 +3,9 @@ package message
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -145,6 +147,65 @@ func (s *Service) ListByChat(ctx context.Context, instanceID, chatJID string, li
 		limit = 50
 	}
 	return s.repo.ListByChat(ctx, instanceID, chatJID, limit, offset)
+}
+
+// ErrNotFound is returned by the repository when no matching message exists.
+var ErrNotFound = errors.New("message not found")
+
+// ErrNoHistoryAnchor means the chat has no stored message to anchor an
+// on-demand history request — WhatsApp needs a known message to page back from.
+var ErrNoHistoryAnchor = errors.New("no known message in this chat to request history from")
+
+// Default and maximum number of messages per on-demand history request.
+const (
+	DefaultHistoryCount = 50
+	MaxHistoryCount     = 100
+)
+
+// HistoryRequest describes an on-demand history request that was sent.
+type HistoryRequest struct {
+	ChatJID         string
+	Count           int
+	AnchorMessageID string
+	AnchorTimestamp time.Time
+}
+
+// RequestHistory asks WhatsApp for up to count messages older than the oldest
+// message already stored for chatJID. Results arrive asynchronously through
+// the history sync event and are persisted, so they show up in ListByChat.
+func (s *Service) RequestHistory(ctx context.Context, instanceID, chatJID string, count int) (*HistoryRequest, error) {
+	chatJID = strings.TrimSpace(chatJID)
+	if count <= 0 {
+		count = DefaultHistoryCount
+	}
+	if count > MaxHistoryCount {
+		count = MaxHistoryCount
+	}
+
+	oldest, err := s.repo.OldestByChat(ctx, instanceID, chatJID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, ErrNoHistoryAnchor
+		}
+		return nil, fmt.Errorf("find history anchor: %w", err)
+	}
+
+	anchor := engine.HistoryAnchor{
+		ChatJID:   oldest.ChatJID,
+		MessageID: oldest.WhatsAppMessageID,
+		FromMe:    oldest.Direction == DirectionOutbound,
+		Timestamp: *oldest.SentAt,
+	}
+	if err := s.engine.RequestHistory(ctx, instanceID, anchor, count); err != nil {
+		return nil, err
+	}
+
+	return &HistoryRequest{
+		ChatJID:         chatJID,
+		Count:           count,
+		AnchorMessageID: anchor.MessageID,
+		AnchorTimestamp: anchor.Timestamp,
+	}, nil
 }
 
 // GetByID retrieves a single message by its internal UUID (must belong to instanceID).
@@ -383,6 +444,13 @@ func (s *Service) handleEngineEvent(evt engine.Event) {
 		}
 		s.persistInbound(ctx, evt.InstanceID, p)
 
+	case engine.EventHistorySync:
+		p, ok := evt.Payload.(*engine.HistorySyncPayload)
+		if !ok {
+			return
+		}
+		s.persistHistory(ctx, evt.InstanceID, p)
+
 	case engine.EventReceiptDelivered:
 		p, ok := evt.Payload.(*engine.ReceiptPayload)
 		if !ok {
@@ -547,6 +615,47 @@ func (s *Service) sendMediaNow(ctx context.Context, instanceID, to string, paylo
 	}
 	metrics.M.MessagesSent.Add(1)
 	return saved, nil
+}
+
+// persistHistory stores history sync messages, skipping ones already known
+// (live messages and earlier syncs share WhatsApp IDs).
+func (s *Service) persistHistory(ctx context.Context, instanceID string, p *engine.HistorySyncPayload) {
+	inserted := 0
+	for _, m := range p.Messages {
+		if m.MessageID == "" {
+			continue
+		}
+		ts := m.Timestamp
+		msg := &Message{
+			InstanceID:        instanceID,
+			WhatsAppMessageID: m.MessageID,
+			Direction:         DirectionInbound,
+			Status:            StatusDelivered,
+			FromJID:           m.SenderJID,
+			ChatJID:           m.ChatJID,
+			IsGroup:           m.IsGroup,
+			Type:              m.Type,
+			Content:           map[string]any{"text": m.Text, "push_name": m.PushName, "history": true},
+			SentAt:            &ts,
+		}
+		if m.FromMe {
+			msg.Direction = DirectionOutbound
+			msg.Status = StatusSent
+			msg.FromJID = p.OwnJID
+		}
+
+		created, err := s.repo.CreateIfAbsent(ctx, msg)
+		if err != nil {
+			s.log.Error().Err(err).Str("wa_id", m.MessageID).Msg("Failed to persist history message")
+			continue
+		}
+		if created {
+			inserted++
+		}
+	}
+	s.log.Info().Str("instance", instanceID).
+		Int("received", len(p.Messages)).Int("inserted", inserted).
+		Msg("History sync messages persisted")
 }
 
 func timePtr(t time.Time) *time.Time { return &t }

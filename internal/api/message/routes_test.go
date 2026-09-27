@@ -3,6 +3,7 @@ package message
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"velix/internal/domain/auth"
@@ -51,6 +52,34 @@ func TestRoutes_PermissionWiring(t *testing.T) {
 
 		if rec.Code == http.StatusForbidden {
 			t.Errorf("GET / with messages:view got %d, want anything but %d (permission gate should have passed)", rec.Code, http.StatusForbidden)
+		}
+	})
+
+	t.Run("POST /history validates before touching svc", func(t *testing.T) {
+		for _, body := range []string{`{}`, `{"chat":"  "}`, `{"chat":"1@g.us","count":101}`, `{"chat":"1@g.us","count":-1}`} {
+			req := httptest.NewRequest(http.MethodPost, "/history", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			req = req.WithContext(middleware.WithClaims(req.Context(), memberViewOnly))
+			rec := httptest.NewRecorder()
+
+			router.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusUnprocessableEntity {
+				t.Errorf("POST /history %s with messages:view = %d, want %d", body, rec.Code, http.StatusUnprocessableEntity)
+			}
+		}
+	})
+
+	t.Run("POST /history requires messages:view", func(t *testing.T) {
+		noPerms := &auth.Claims{Role: auth.RoleMember}
+		req := httptest.NewRequest(http.MethodPost, "/history", strings.NewReader(`{}`))
+		req = req.WithContext(middleware.WithClaims(req.Context(), noPerms))
+		rec := httptest.NewRecorder()
+
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusForbidden {
+			t.Errorf("POST /history without permissions = %d, want %d", rec.Code, http.StatusForbidden)
 		}
 	})
 }

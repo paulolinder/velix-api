@@ -237,9 +237,13 @@ func (s *Service) handleEngineEvent(evt engine.Event) {
 
 // bufferHistorySync saves history sync messages into the database buffer for later replay.
 func (s *Service) bufferHistorySync(ctx context.Context, instanceID string, p *engine.HistorySyncPayload) {
-	msgs := make([]HistoryBufferMsg, len(p.Messages))
-	for i, m := range p.Messages {
-		msgs[i] = HistoryBufferMsg{
+	// Chatwoot only mirrors individual chats — groups are skipped here as in live sync.
+	msgs := make([]HistoryBufferMsg, 0, len(p.Messages))
+	for _, m := range p.Messages {
+		if m.IsGroup {
+			continue
+		}
+		msgs = append(msgs, HistoryBufferMsg{
 			MessageID: m.MessageID,
 			ChatJID:   m.ChatJID,
 			SenderJID: m.SenderJID,
@@ -248,7 +252,10 @@ func (s *Service) bufferHistorySync(ctx context.Context, instanceID string, p *e
 			MsgType:   m.Type,
 			PushName:  m.PushName,
 			Timestamp: m.Timestamp,
-		}
+		})
+	}
+	if len(msgs) == 0 {
+		return
 	}
 	if err := s.mappings.SaveHistoryMessages(ctx, instanceID, msgs); err != nil {
 		s.log.Warn().Err(err).Str("instance", instanceID).Int("count", len(msgs)).

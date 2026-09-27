@@ -570,6 +570,10 @@ paths:
     get:
       tags: [Messages]
       summary: List messages for a chat
+      description: |
+        Returns stored messages for a contact or group chat, newest first by send time.
+        Includes messages received live and messages imported by history sync
+        (`content.history = true`). To import older messages, see `POST /messages/history`.
       parameters:
         - $ref: '#/components/parameters/instanceID'
         - name: chat
@@ -577,7 +581,7 @@ paths:
           required: true
           schema:
             type: string
-          description: Chat JID (e.g. 5511999999999@s.whatsapp.net)
+          description: Chat JID (e.g. 5511999999999@s.whatsapp.net or 120363012345678901@g.us)
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
       responses:
@@ -589,6 +593,36 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Message'
+
+  /instances/{instanceID}/messages/history:
+    post:
+      tags: [Messages]
+      summary: Request older messages for a chat from WhatsApp
+      description: |
+        Asks the primary device for up to `count` messages older than the oldest
+        message already stored for the chat. The request is asynchronous: the phone
+        replies with a history sync a few seconds later, the messages are stored, and
+        they then appear in `GET /messages?chat=...`. Call repeatedly to page further back.
+
+        Requires at least one stored message in the chat (the anchor) and the phone
+        to be online. WhatsApp may return fewer messages than requested.
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestHistoryRequest'
+      responses:
+        '202':
+          description: Request sent to the phone
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestHistoryResponse'
+        '422':
+          description: Missing/invalid chat or count, or no stored message to anchor the request
 
   /instances/{instanceID}/messages/scheduled:
     get:
@@ -1308,6 +1342,38 @@ components:
             - `86400` — 24 hours
             - `604800` — 7 days
             - `7776000` — 90 days
+
+    RequestHistoryRequest:
+      type: object
+      required: [chat]
+      properties:
+        chat:
+          type: string
+          description: JID of the chat (user or group)
+          example: 120363012345678901@g.us
+        count:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+          description: Number of older messages to request
+
+    RequestHistoryResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: requested
+        chat:
+          type: string
+        count:
+          type: integer
+        anchor_message_id:
+          type: string
+          description: WhatsApp ID of the oldest stored message the request pages back from
+        anchor_timestamp:
+          type: string
+          format: date-time
 
     SendStatusRequest:
       type: object

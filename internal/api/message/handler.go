@@ -2,6 +2,7 @@ package message
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -51,6 +52,7 @@ func Routes(svc *message.Service) http.Handler {
 	r.With(view).Get("/", h.ListByChat)
 	r.With(schedule).Get("/scheduled", h.ListScheduled)
 	r.With(view).Get("/search", h.SearchMessages)
+	r.With(view).Post("/history", h.RequestHistory)
 
 	r.With(send).Delete("/{msgID}", h.RevokeMessage)
 	r.With(schedule).Delete("/{msgID}/schedule", h.CancelScheduled)
@@ -404,6 +406,44 @@ func (h *Handler) SetDisappearingTimer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	apipkg.WriteJSON(w, r, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// RequestHistory handles POST /v1/instances/{instanceID}/messages/history.
+// It asks WhatsApp for messages older than the oldest one stored for the chat;
+// they arrive asynchronously and then appear in GET /messages?chat=....
+func (h *Handler) RequestHistory(w http.ResponseWriter, r *http.Request) {
+	instanceID := apipkg.Param(r, "instanceID")
+	var req RequestHistoryRequest
+	if !apipkg.DecodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.Chat) == "" {
+		apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeValidation, "chat is required"))
+		return
+	}
+	if req.Count < 0 || req.Count > message.MaxHistoryCount {
+		apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeValidation, fmt.Sprintf("count must be between 1 and %d", message.MaxHistoryCount)))
+		return
+	}
+
+	hr, err := h.svc.RequestHistory(r.Context(), instanceID, req.Chat, req.Count)
+	if err != nil {
+		if errors.Is(err, message.ErrNoHistoryAnchor) {
+			apipkg.WriteError(w, r, apipkg.NewError(apipkg.ErrCodeValidation,
+				"no stored message for this chat yet — WhatsApp needs one known message to page back from; wait for a new message in the chat and retry"))
+			return
+		}
+		apipkg.LogAndFail(w, r, err, "request history")
+		return
+	}
+
+	apipkg.WriteJSON(w, r, http.StatusAccepted, RequestHistoryResponse{
+		Status:          "requested",
+		Chat:            hr.ChatJID,
+		Count:           hr.Count,
+		AnchorMessageID: hr.AnchorMessageID,
+		AnchorTimestamp: hr.AnchorTimestamp,
+	})
 }
 
 // SendStatus handles POST /v1/instances/{instanceID}/messages/status.

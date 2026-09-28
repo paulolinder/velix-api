@@ -4,7 +4,7 @@
 # Sem --platform=$BUILDPLATFORM: Buildx escolhe a imagem correta
 # para cada plataforma alvo. Para arm64, roda via QEMU (já configurado
 # no CI). CGO desabilitado = compilação pura Go, rápida mesmo emulada.
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 ARG VERSION=dev
 

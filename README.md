@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Go-1.25%2B-00ADD8?logo=go&logoColor=white" alt="Go version" />
+  <img src="https://img.shields.io/badge/Go-1.26%2B-00ADD8?logo=go&logoColor=white" alt="Go version" />
   <img src="https://img.shields.io/badge/whatsmeow-multi--device-25D366?logo=whatsapp&logoColor=white" alt="whatsmeow" />
   <img src="https://img.shields.io/badge/Postgres-16-4169E1?logo=postgresql&logoColor=white" alt="Postgres" />
   <img src="https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white" alt="Redis" />
@@ -62,7 +62,7 @@ A engine WhatsApp fica atrás de uma interface (`internal/engine/interface.go`),
 
 ## Requisitos
 
-- [Go](https://go.dev/) 1.25+
+- [Go](https://go.dev/) 1.26+
 - [Docker](https://www.docker.com/) + Docker Compose (para Postgres e Redis)
 - PostgreSQL 16 e Redis 7 (via Docker ou instância própria)
 
